@@ -1,12 +1,5 @@
 import data.nat.basic
-import tactic
-import tactic.interactive
-import tactic.basic
-import init.default
-import data.dlist 
-import tactic.core
-import init.data.subtype.basic init.funext
-import init.logic
+
 
 
 /--This version of the axioms of Tarski is the one given in Wolfram Schwabhäuser, 
@@ -26,6 +19,7 @@ class tarski_preneutral (Point : Type) :=
    Cong B C B' C' → Cong A D A' D' →Cong B D B' D' →
    Bet A B C → Bet A' B' C' → A ≠ B → Cong C D C' D')
   (between_identity : ∀ A B, Bet A B A → A = B) 
+   (between_identity2 : ∀ A B, ¬ Bet A B A)
   (inner_pasch : ∀ A B C P Q,
    Bet A P C → Bet B Q C →
    ∃ X, Bet P X B ∧ Bet Q X A)
@@ -549,7 +543,6 @@ def circle_circle_two  (A B C D P Q: Point) :=
     OnCircle Z2 A B ∧ OnCircle Z2 C D ∧
     (InCircleS P A B → OutCircleS Q A B → Z1≠Z2)
 
-
 /--Nested A B describes the fact that the sequences A and B form
  the end points of nested non-degenerate segments -/
 
@@ -568,7 +561,6 @@ def dedekind_s_axiom := ∀ (Xi Upsilon : Point → Prop),
 def O   := (PA : Point)
 def E := (PB: Point)
 def E'  := (PC: Point)
-
 
 
 @[simp] lemma cong_reflexivity (A B : Point):
@@ -627,9 +619,7 @@ begin
 end 
 
 
-
 lemma cong_commutativity (A B C D : Point) (HCong: Cong A B C D ): Cong B A D C:=
-
 begin
   rintros,
   apply cong_left_commutativity,
@@ -641,10 +631,33 @@ mk_simp_attribute cong_simp "simplification lemmas for congruence"
 attribute [cong_simp] cong_symmetry cong_left_commutativity cong_commutativity 
 cong_right_commutativity 
 
+lemma five_segment_with_def ( A B C D A' B' C' D': Point):
+ OFSC A B C D A' B' C' D' → A≠B → Cong C D C' D':=
+begin
+    unfold OFSC,
+    rintros,
+    apply (five_segment A A' B B'), 
+    all_goals {tauto!,},
+end 
 
-lemma cong_diff (A B C D : Point) : A ≠ B → Cong A B C D → C ≠ D:=sorry
 
-lemma cong_diff2 (A B C D : Point): C ≠ D → Cong A B C D → A ≠ B:=sorry 
+lemma cong_diff (A B C D : Point) : A ≠ B → Cong A B C D → C ≠ D:=
+begin
+  rintros HAB HCong,
+  intro heq,
+  subst_vars,
+  apply HAB,
+  apply cong_identity _ _ _ HCong,
+end 
+
+lemma cong_diff2 (A B C D : Point): C ≠ D → Cong A B C D → A ≠ B:=
+begin
+  rintros HCD HCong,
+  intro heq,
+  subst_vars,
+  apply HCD,
+  apply cong_identity _ _ _ (cong_symmetry _ _ _ _ HCong),
+end 
 
 
 
@@ -656,6 +669,42 @@ begin
     eapply cong_identity C D A,
     tauto,
 end
+
+
+lemma l2_11 ( A B C A' B' C': Point):
+ Bet A B C → Bet A' B' C' → Cong A B A' B' → Cong B C B' C' → Cong A C A' C':=
+
+begin
+    rintros HBet HCong1 HCong2 HCong3,
+    by_cases A = B,
+      subst B,
+      have : (A' = B'),
+       apply (cong_identity A' B' A),
+       simp * with cong_simp,
+       subst_vars, assumption,
+    apply cong_commutativity,
+    apply (five_segment A A' B B' C C' A A'), 
+    any_goals {tauto!,},
+    apply cong_trivial_identity,
+    exact cong_commutativity _ _ _ _ HCong2,
+end 
+
+
+
+lemma construction_uniqueness (Q A B C X Y : Point):
+ Q ≠ A → Bet Q A X → Cong A X B C → Bet Q A Y → Cong A Y B C → X=Y:=
+begin
+    rintros HQA HBet HCong HBet1 HCong2,
+    have HCong3: Cong A X A Y, apply cong_transitivity _ _ B C, 
+    assumption, simp * with cong_simp,
+    have HCong4: Cong Q X Q Y, apply l2_11 Q A X Q A Y, repeat {assumption,},
+    apply cong_reflexivity,
+    have HOFSC: (OFSC Q A X Y Q A X X), unfold OFSC, 
+    refine ⟨by assumption, by assumption, cong_reflexivity Q A, cong_reflexivity A X,
+     cong_symmetry Q X Q Y HCong4,cong_symmetry A X A Y HCong3⟩,
+    replace HOFSC:= five_segment_with_def _ _ _ _ _ _ _ _ HOFSC HQA,
+    apply cong_identity _ _ X, tauto!, 
+end 
 
 
 lemma bet_col (A B C: Point) (H: Bet A B C) : Col A B C := 
@@ -712,7 +761,34 @@ begin
     apply between_equality _ _ _ (between_symmetry _ _ _ H1) (between_symmetry _ _ _ H),
 end
 
-lemma outer_transitivity_between2 ( A B C D:Point): Bet A B C → Bet B C D → B≠C → Bet A C D :=sorry 
+lemma between_exchange3 ( A B C D : Point) : Bet A B C → Bet A C D → Bet B C D:=
+begin
+  rintros H1 H2,
+  have : ∃ x, Bet C x C ∧ Bet B x D,
+    apply inner_pasch, repeat {apply between_symmetry,
+    tauto!,},
+    cases this with x H1,
+    have: C = x,
+      apply between_identity,
+      tauto, subst_vars, tauto,
+end 
+
+lemma between_inner_transitivity ( A B C D: Point):Bet A B D → Bet B C D → Bet A B C:= sorry
+
+
+lemma outer_transitivity_between2 ( A B C D:Point): Bet A B C → Bet B C D → B≠C → Bet A C D :=
+begin
+  rintros,
+  cases segment_construction A C C D with x H,
+  have H: x= D,
+    apply construction_uniqueness B C C D,
+    assumption,
+    apply between_exchange3 A B C x,
+    repeat {tauto!,},
+    apply cong_reflexivity C D,
+    subst x,
+    tauto,
+end 
 
 
 lemma bet.neq (A B C : Point): Bet A B C → B ≠ C ∧ A ≠ B ∧ A ≠ C := sorry
@@ -919,7 +995,7 @@ begin
   end 
 
 
-lemma col_permutation_4 ( A B C: Point):Col A B C → Col B A C:=sorry
+lemma col_permutation_4 ( A B C: Point):Col A B C → Col B A C:=
   begin
    cleanup,
   end 
@@ -951,7 +1027,6 @@ begin
 end 
 
 
-
 lemma NCol_perm : ∀ (A B C: Point),
  ¬ Col A B C → ¬ Col A B C ∧ ¬ Col A C B ∧ ¬ Col B A C ∧
  ¬ Col B C A ∧ ¬ Col C A B ∧ ¬ Col C B A:=
@@ -970,29 +1045,88 @@ lemma l11_3_bis (A B C D E F : Point): ( ∃ A', ∃ C', ∃ D' , ∃ F',
 
 
 
-@[simp] lemma conga_refl  (A B C: Point) (H: A ≠ B) (H' : C ≠ B) : CongA A B C A B C := sorry
+@[simp] lemma conga_refl  (A B C: Point) (H: A ≠ B) (H' : C ≠ B) : CongA A B C A B C := 
+begin
+  rintros,
+  apply l11_3_bis,
+  use [A, C, A, C],
+  repeat {split,},
+  repeat {tauto!,},
+  any_goals {left, simp with bet_simp,},
+  all_goals {apply cong_reflexivity,},
+end 
 
 
-lemma conga_sym {A B C A' B' C' : Point} (H: CongA A B C A' B' C') : CongA A' B' C' A B C := sorry 
+lemma conga_sym {A B C A' B' C' : Point} (H: CongA A B C A' B' C') : CongA A' B' C' A B C := 
+begin
+  rintros,
+  unfold CongA at H,
+  rcases H with ⟨_,_,_,_,A0,C0,D0,F0, H3⟩,
+  unfold CongA, cleanup,
+  refine ⟨_,_,_,_⟩ ,
+  use D0, repeat {tauto!,},
+  use F0, refine ⟨by tauto!, by tauto!, _⟩ ,
+  use A0, refine ⟨by tauto!, by tauto!,_⟩ , 
+  use C0, refine ⟨by tauto!, by tauto!, _⟩ ,
+  simp * with cong_simp,
+end 
+
+lemma conga_trans (A B C A' B' C' A'' B'' C'':Point):
+  CongA A B C A' B' C' → CongA A' B' C' A'' B'' C'' →
+  CongA A B C A'' B'' C'' :=sorry 
+
+lemma conga_pseudo_refl (A B C: Point) (H: A ≠ B) ( H' : C ≠ B) :CongA A B C C B A :=sorry 
 
 
 lemma cong3_conga { A B C A' B' C' : Point}
  (HAB: A ≠ B) (HCB: C ≠ B )  (H: Cong_3 A B C A' B' C') :
  CongA A B C A' B' C' :=sorry 
 
-lemma conga_right_comm  (A B C D E F: Point) (H: CongA A B C D E F) : CongA A B C F E D:=sorry
+lemma conga_right_comm  (A B C D E F: Point) (H: CongA A B C D E F) : CongA A B C F E D:=
+
+begin
+  rintros,
+  apply conga_trans _ _ _ D E F,
+  apply H,
+  unfold CongA at H,
+  apply conga_pseudo_refl,
+  repeat {tauto!,},
+end 
+
+lemma conga_left_comm  (A B C D E F: Point)(H: CongA A B C D E F) : CongA C B A D E F:=
+begin
+  rintros,
+  apply conga_sym,
+  apply conga_trans _ _ _ A B C,
+    apply conga_sym,
+    apply H,
+  unfold CongA at H,
+  apply conga_pseudo_refl,
+  repeat {tauto!,},
+end 
 
 
-lemma conga_left_comm  (A B C D E F: Point)(H: CongA A B C D E F) : CongA C B A D E F:=sorry
+lemma conga_trivial_1 ( A B C D: Point):
+  A≠B → C≠D → CongA A B A C D C :=
+begin
+  rintros HAB HCD,
+  unfold CongA,
+  refine ⟨by tauto!, by tauto!, by tauto!, by tauto!, _⟩,
+  cases segment_construction B A D C with A' H,
+  cases segment_construction D C B A with C' H1,
+  use [A', A', C', C'],
+  refine ⟨_,_,_,_,_,_,_,_,_⟩,
+  any_goals {tauto!,},
+  apply cong_trivial_identity A' C',
+end
 
-lemma conga_pseudo_refl (A B C: Point) (H: A ≠ B) ( H' : C ≠ B) :CongA A B C C B A :=sorry 
 
-
-lemma conga_trivial_1 : ∀( A B C D: Point),
-  A≠B → C≠D → CongA A B A C D C :=sorry 
-
-
-lemma conga_comm (A B C D E F: Point) (H: CongA A B C D E F) : CongA C B A F E D:= sorry
+lemma conga_comm (A B C D E F: Point) (H: CongA A B C D E F) : CongA C B A F E D:= 
+begin
+apply conga_left_comm,
+apply conga_right_comm,
+assumption,
+end 
 
 
 lemma bet_conga_bet : ∀ (A B C A' B' C' : Point), Bet A B C →
@@ -1014,9 +1148,13 @@ lemma collinear_lemma (A B C : Point)
   end 
 
 lemma collinear_lemma' (A B C : Point) 
-(H : BetS A B C ∨ BetS A C B ∨ BetS B A C ∨ BetS B C A ∨ BetS C B A ∨ BetS C A B) :
+(H : Bet A B C ∨ Bet A C B ∨ Bet B A C ∨ Bet B C A ∨ Bet C B A ∨ Bet C A B) :
   Col A B C :=
-sorry
+  begin
+  unfold Col,
+  tauto!,
+  end 
+
 
 meta def collinear_tac : tactic unit :=  `[ subst_vars ] >> (`[ apply collinear_lemma, simp *] <|> 
 `[ apply collinear_lemma', simp *])
@@ -1037,28 +1175,26 @@ end
 
 lemma  not_col_permutation_1 (A B C : Point): ¬ Col A B C → ¬ Col B C A:=
 begin
-
+  cleanup,
 end
 
-
-lemma not_col_permutation_2 (A B C : Point): ¬ Col A B C → ¬ Col C A B:=sorry
+lemma not_col_permutation_2 (A B C : Point): ¬ Col A B C → ¬ Col C A B:=
 begin
-
+  cleanup,
+end
+lemma not_col_permutation_3 (A B C : Point): ¬ Col A B C → ¬ Col C B A:=
+begin
+  cleanup,
 end
 
-lemma not_col_permutation_3 (A B C : Point): ¬ Col A B C → ¬ Col C B A:=sorry
+lemma  not_col_permutation_4 (A B C : Point):¬ Col A B C → ¬ Col B A C:=
 begin
-
+  cleanup,
 end
 
-lemma  not_col_permutation_4 (A B C : Point):¬ Col A B C → ¬ Col B A C:=sorry 
+lemma  not_col_permutation_5 (A B C : Point): ¬ Col A B C → ¬ Col A C B:=
 begin
-
-end
-
-lemma  not_col_permutation_5 (A B C : Point): ¬ Col A B C → ¬ Col A C B:=sorry
-begin
-
+  cleanup,
 end
 
 end tarski_preneutral
@@ -1099,11 +1235,6 @@ upper_dim_axiom Point → all_coplanar_axiom Point :=sorry
 lemma all_coplanar (A B C D: Point): Coplanar A B C D:=sorry
 
 
-/--section 2-/
-
-lemma l2_11 : ∀( A B C A' B' C': Point),
- Bet A B C → Bet A' B' C' → Cong A B A' B' → Cong B C B' C' → Cong A C A' C':=sorry
-
 
 /--Section 3-/
 lemma lower_dim_ex : ∃ (A B C : Point),  ¬ (Bet A B C ∨ Bet B C A ∨ Bet C A B) :=
@@ -1111,7 +1242,8 @@ begin
   rintros, use[PA, PB, PC, lower_dim],
 end 
 
-lemma l4_2 : ∀ (A B C D A' B' C' D': Point), IFSC A B C D A' B' C' D' → Cong B D B' D':=sorry 
+lemma l4_2 (A B C D A' B' C' D': Point): IFSC A B C D A' B' C' D' → Cong B D B' D':=sorry
+
 
 
 lemma le_trivial {A C D : Point}: Le A A C D := 
@@ -1124,17 +1256,60 @@ begin
   apply cong_trivial_identity,
 end 
 
-lemma lt_right_comm (A B C D: Point): Lt A B C D → Lt A B D C:=sorry 
+lemma le_transitivity (A B C D E F: Point): Le A B C D → Le C D E F → Le A B E F:=sorry 
 
-lemma lt_left_comm  (A B C D: Point): Lt A B C D → Lt B A C D:=sorry
+lemma le_left_comm (A B C D: Point): Le A B C D → Le B A C D:=sorry 
 
-lemma lt_comm (A B C D: Point): Lt A B C D → Lt B A D C :=sorry 
+lemma le_right_comm (A B C D: Point):  Le A B C D → Le A B D C :=sorry 
 
-lemma gt_left_comm (A B C D : Point): Gt A B C D → Gt B A C D :=sorry
 
-lemma gt_right_comm (A B C D : Point): Gt A B C D → Gt A B D C :=sorry
+lemma lt_right_comm (A B C D: Point): Lt A B C D → Lt A B D C:=
+begin
+  rintros H,
+  unfold Lt at *,
+  constructor,
+  apply le_right_comm _ _ _ _ H.1,
+  cleanup,
+end 
 
-lemma gt_comm (A B C D : Point): Gt A B C D → Gt B A D C :=sorry 
+lemma lt_left_comm  (A B C D: Point): Lt A B C D → Lt B A C D:=
+begin
+  rintros H,
+  unfold Lt at *,
+  constructor,
+  apply le_left_comm _ _ _ _ H.1,
+  cleanup,
+end 
+
+lemma lt_comm (A B C D: Point): Lt A B C D → Lt B A D C :=
+begin
+  rintros H,
+  apply lt_left_comm,
+  exact lt_right_comm _ _ _ _ H,
+end 
+
+lemma gt_left_comm (A B C D : Point): Gt A B C D → Gt B A C D :=
+begin
+  rintros H,
+  unfold Gt at *,
+  exact lt_right_comm _ _ _ _ H,
+end 
+
+lemma gt_right_comm (A B C D : Point): Gt A B C D → Gt A B D C :=
+begin
+  rintros H,
+  unfold Gt at *,
+  exact lt_left_comm _ _ _ _ H,
+end 
+
+lemma gt_comm (A B C D : Point): Gt A B C D → Gt B A D C :=
+begin
+  rintros H,
+  apply lt_left_comm,
+  apply lt_right_comm,
+  unfold Gt at *,
+  cleanup,
+end 
 
 lemma bet__lt1213 ( A B C: Point): B ≠ C → Bet A B C → Lt A B A C :=sorry 
 
@@ -1149,6 +1324,10 @@ lemma lt__le (A B C D: Point): Lt A B C D → Le A B C D :=sorry
 
 lemma le_anti_symmetry (A B C D:Point): Le A B C D → Le C D A B → Cong A B C D :=sorry
 
+
+lemma le_lt34_sums2__lt ( A B C D E F A' B' C' D' E' F': Point):
+  Le A B A' B' → Lt C D C' D' → SumS A B C D E F → SumS A' B' C' D' E' F' →
+  Lt E F E' F':=sorry
 
 lemma or_lt_cong_gt ( A B C D : Point) : Lt A B C D ∨ Gt A B C D ∨ Cong A B C D :=sorry
 
@@ -1182,11 +1361,7 @@ lemma bet_out : ∀ (A B C: Point), B ≠ A → Bet A B C → Out A B C:=sorry
 
 /-out reflexivity-/
 lemma out_trivial (P A : Point) : (A ≠ P) → Out P A A := sorry
--- begin
---     rintros,
---     refine ⟨by cc, by cc, _⟩, by betidentity ,
-    
--- end
+
 
 lemma out_distinct ( A B C: Point): Out A B C → B ≠ A ∧ C ≠ A:=sorry
 
@@ -1196,6 +1371,10 @@ lemma out_sym (P A B : Point) : Out P A B → Out P B A :=sorry
 
 lemma out_one_side (A B X Y : Point): (¬Col A B X ∨ ¬ Col A B Y) → Out A X Y → OS A B X Y:=sorry
 
+lemma out_out_one_side (A B X Y Z: Point):
+  OS A B X Y →
+  Out A Y Z →
+  OS A B X Z :=sorry
 
 lemma one_side_transitivity (P Q A B C: Point):
 OS P Q A B → OS P Q B C → OS P Q A C:=sorry 
@@ -1248,46 +1427,31 @@ lemma l8_12 (A B C D X : Point): Perp_at X A B C D → Perp_at X C D A B :=sorry
 lemma l8_18_existence (A B C : Point): ¬ Col A B C → ∃ X, Col A B X ∧ Perp A B C X:=sorry
 
 lemma midpoint_existence (A B : Point): ∃ X, Midpoint X A B := sorry
--- begin 
---     rintros,
---     by_cases A=B, 
---     use A, 
---     subst_vars,
---     apply l7_3_2,
---     by_cases ∃ Q ,Perp A B B Q ,
---     unfold Perp at *,
---     unfold Midpoint,
-      
---       ex_elim H0 Q.
---       cut(∃ P, ∃ T, Perp A B P A ∧ Col A B T ∧ Bet Q T P).
---         intros.
---         ex_elim H0 P.
---         ex_and H2 T.
---         assert (Le A P B Q ∨ Le B Q A P) by (apply le_cases).
---         induction H4.
---           apply midpoint_existence_aux with P Q T;finish;Perp.
---         assert (∃ X : Point, Midpoint X B A)
---           by (apply (midpoint_existence_aux B A Q P T);finish;Perp;Between).
---         ex_elim H5 X.
---         ∃ X.
---         finish.
---        apply l8_21;assumption.
---     assert (∃ P : Point, (∃ T : Point, Perp B A P B ∧ Col B A T ∧ Bet A T P)) by (apply (l8_21 B A);auto).
---     ex_elim H0 P.
---     ex_elim H1 T.
---     spliter.
---     ∃ P.
---     Perp.
--- end 
 
 
 
-lemma symmetric_point_construction (A P : Point) :  ∃ P', Midpoint A P P' :=sorry
+lemma symmetric_point_construction (A P : Point) :  ∃ P', Midpoint A P P' :=
+begin
+    unfold Midpoint,
+    cases segment_construction P A P A with E H,
+    use E,
+    cleanup,
+end 
 
-lemma midpoint_bet (A B C: Point): Midpoint B A C → Bet A B C :=sorry 
+lemma midpoint_bet (A B C: Point): Midpoint B A C → Bet A B C :=
+begin
+    unfold Midpoint,
+    rintros H,
+    cleanup,
+end 
 
-
-lemma l7_2 ( M A B: Point): Midpoint M A B → Midpoint M B A:=sorry
+lemma l7_2 ( M A B: Point): Midpoint M A B → Midpoint M B A:=
+begin
+    unfold Midpoint,
+    rintros,
+    cleanup,
+    exact between_symmetry _ _ _ ᾰ.1,
+end 
 
 
 lemma l8_7 {A B C : Point}: Per A B C → Per A C B → B=C := sorry 
@@ -1319,7 +1483,6 @@ lemma perp_at7 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X D C B A := 
 
 
 
-
 meta def perp : tactic unit := `[try { simp only [perp_at1, perp_at2, 
 perp_at3, perp_at4, perp_at5, perp_at6, perp_at7] at *}; try {simp*}]
 
@@ -1327,16 +1490,8 @@ perp_at3, perp_at4, perp_at5, perp_at6, perp_at7] at *}; try {simp*}]
 lemma l8_2 (A B C : Point): Per A B C → Per C B A :=sorry 
 
 
-
 lemma l8_9 ( A B C : Point ): Per A B C → Col A B C → A=B ∨ C=B := sorry 
-  -- begin
-  -- rintros Per1 Col1,
-  -- constructor,
-  -- by_contradiction,
-  -- have := l8_7 Per1 Per1,
-  -- have:= (l8_7 _ _ _ (l8_2 _ _ _ Per1)),
 
-  -- end 
 
 lemma l8_14_2_1b_bis ( A B C D X : Point): 
 Perp A B C D → Col X A B → Col X C D → Perp_at X A B C D:=sorry
@@ -1401,24 +1556,14 @@ lemma col_one_side_out (A B X Y: Point):
  OS A B X Y →
  Out A X Y:=sorry
 
-------------------------
--- meta def Side l9_2 
---  invert_one_side
---  l9_9, 
--- l9_9_bis
-
 lemma conga_dec :
   ∀( A B C D E F: Point),
    CongA A B C D E F ∨ ¬ CongA A B C D E F :=sorry 
 
 
-/--Section T10-/
-
 lemma cong2_conga_cong : ∀ (A B C A' B' C': Point),
  CongA A B C A' B' C' → Cong A B A' B' → Cong B C B' C' →
  Cong A C A' C':=sorry 
-
---  end 
 
 
 lemma l10_15 (A B C P : Point) : Col A B C → ¬ Col A B P →
@@ -1435,8 +1580,6 @@ lemma angle_construction_2 : ∀ (A B C A' B' P: Point),
  ∃ C', CongA A B C A' B' C' ∧ (OS A' B' C' P ∨ Col A' B' C') :=sorry 
 
 lemma per_per_col : ∀ (A B C X: Point), Per A X C → X ≠ C → Per B X C → Col A B X :=sorry
--- Proof.
--- intros. apply cop_per_per_col with C; auto; apply all_coplanar 
 
 
 lemma lea_asym : ∀ (A B C D E F: Point),
@@ -1458,15 +1601,12 @@ begin
 end 
 
 lemma lea__nlta : ∀ (A B C D E F: Point), LeA A B C D E F → ¬ LtA D E F A B C :=sorry
--- begin
---   rintros _ _ _ _ _ _ HLeA,
---   -- cases HLeA with X HNConga,
---   apply HNConga,
---   apply lea_asym; assumption.
--- end 
+
 
 lemma lta__nlea : ∀ (A B C D E F: Point), LtA A B C D E F → ¬ LeA D E F A B C:=sorry
 
+lemma lea123456_lta__lta (A B C D E F G H I: Point ): LeA A B C D E F → LtA D E F G H I →
+   LtA A B C G H I:=sorry
 
 lemma nlta__lea : ∀ (A B C D E F: Point), ¬ LtA A B C D E F → A ≠ B → B ≠ C → D ≠ E → E ≠ F →
    LeA D E F A B C:=sorry
@@ -1489,23 +1629,6 @@ lemma ex_per_cong : ∀ (A B C D X Y : Point),
  ∃ P, Per P C A ∧ Cong P C X Y ∧ OS A B P D :=sorry 
 
 lemma exists_cong_per (A B X Y : Point): ∃ C, Per A B C ∧ Cong B C X Y :=sorry
--- begin
---   rintros,
---   by_cases A = B,
---   intros,
---   subst A,
---   cases segment_construction X B X Y with C H1,
---   use C, cleanup, unfold Per, use X,
---   unfold Midpoint, cleanup, simp* with bet_simp, 
---   exfalso,
---   cases H1 with HBet HCong,
---   replace HCong := cong_perm _ _ _ _ HCong,-- cong_perm
-  
---   cases not_col_exists A B H as P HP,
---   -- use X, split, unfold Per at *, use H, unfold Midpoint at *,
-
--- end 
-
 
 lemma l11_4_1 {A B C D E F : Point}:
   CongA A B C D E F → A≠B ∧ C≠B ∧ D≠E ∧ F≠E ∧
@@ -1540,63 +1663,7 @@ lemma l11_18_1  (A B C D: Point):
 lemma l11_13 (A B C D E F A' D': Point):
  CongA A B C D E F → Bet A B A' → A'≠ B → Bet D E D' → 
  D'≠ E → CongA A' B C D' E F := sorry 
--- begin
---   rintros H H1 H2 H3 H4,
---     unfold CongA at H,
---     rcases H with ⟨H5, H6, H7, H8, H9⟩,
---     rcases H9 with ⟨A'', C'', D'', F'', H10⟩ ,
--- --     prolong B A' A0 E D'.
--- --     prolong E D' D0 B A'.
---     unfold CongA, 
---     cleanup,
---     use A, 
---     cleanup,
---     refine ⟨by tauto!,_,_,_,_,_,_⟩, 
---     ∃ A0.
---     ∃ C''.
---     ∃ D0.
---     ∃ F''.
---     repeat split; try assumption.
---     apply (five_segment_with_def A'' B A0 C'' D'' E D0 F'').
-  -- end 
-    -- unfold OFSC.
---       repeat split.
---         eapply outer_transitivity_between2.
---           apply between_symmetry.
---           apply H7.
---           eapply outer_transitivity_between.
---             apply H0.
---             assumption.
---           auto.
---         assumption.
---         eapply outer_transitivity_between2.
---           apply between_symmetry.
---           apply H11.
---           eapply outer_transitivity_between.
---             apply H2.
---             assumption.
---           auto.
---         assumption.
---         apply cong_left_commutativity.
---         eapply l2_11.
---           apply H7.
---           apply between_symmetry.
---           apply H11.
---           Cong.
---         Cong.
---         apply cong_right_commutativity.
---         eapply l2_11.
---           apply H16.
---           apply between_symmetry.
---           apply H18.
---           apply cong_symmetry.
---           Cong.
---         Cong.
---         assumption.
---       apply cong_right_commutativity.
---       eapply l2_11 with C F;finish.
---     assert_diffs;auto.
--- Qed.
+
 
 lemma l11_14 (A B C A' C': Point): Bet A B A' → A ≠ B → A' ≠ B → Bet C B C' → B ≠ C → B ≠ C' →
  CongA A B C A' B C':=sorry
@@ -1614,15 +1681,6 @@ lemma l11_41_aux : ∀( A B C D: Point),
 
 lemma l11_41  (A B C D: Point):
  ¬ Col A B C → Bet B A D → A ≠ D → LtA A C B C A D ∧ LtA A B C C A D := sorry
---  begin
---     rintros H H1 H2,
---     split,
---       apply l11_41_aux,
---       repeat {tauto!,},
---       have sg:= segment_construction C A E C,
-    
---     end 
-
 
  
 lemma lea_left_comm (A B C D E F: Point): LeA A B C D E F → LeA C B A D E F := 
@@ -1761,6 +1819,10 @@ lemma alternate_interior__triangle :
   alternate_interior_angles_postulate Point → triangle_postulate Point := sorry 
 
 
+lemma bet__le1213 (A B C : Point): Bet A B C → Le A B A C :=sorry 
+
+lemma bet__le2313 (A B C : Point): Bet A B C → Le B C A C :=sorry 
+
 
 
 lemma l11_47( A B C H: Point): Per A C B → Perp_at H C H A B →
@@ -1815,7 +1877,6 @@ lemma l11_49 : ∀ (A B C A' B' C' : Point),
  end 
 
 
-
 lemma l11_50_2 ( A B C A' B' C': Point):
   ¬Col A B C → CongA B C A B' C' A' → CongA A B C A' B' C' → Cong A B A' B' →
   Cong A C A' C' ∧ Cong B C B' C' ∧ CongA C A B C' A' B' :=sorry
@@ -1839,7 +1900,6 @@ lemma os_distincts (A B X Y: Point): OS A B X Y →
 
 lemma conga__or_out_ts : ∀ (A B C C': Point),
  CongA A B C A B C' → Out B C C' ∨ TS A B C C' :=sorry 
-
 
 
 lemma perp_sym (A B C D: Point): Perp A B C D → Perp C D A B :=sorry 
@@ -1866,66 +1926,11 @@ lemma conga_distinct (A B C D E F: Point):
 
 lemma angle_bisector (A B C : Point): A ≠ B → C ≠ B → ∃ P, 
 InAngle P A B C ∧ CongA P B A P B C:= sorry
-  -- begin
-  -- rintros HAB HCB,
-  --   cases (not_col_exists A B) HAB with Q HNCol,
-  --   rcases (l10_15 A B B Q) (col_trivial_2 A B) HNCol with ⟨P ,⟨HPerp, HOS⟩⟩ ,
-  -- by_cases HCol: Col A B C,
-  --   by_cases HBet: Bet A B C,
-  --   replace HOS:= os_distincts _ _ _ _ HOS,
-  --   use P,
-  --   split,
-  --   apply in_angle_line , repeat {tauto!,},
-  --   apply l11_18_1, repeat {tauto!,},
-  --   apply perp_per_1,
-  --   apply perp_sym,
-  --   exact (perp_right_comm _ _ _ _ HPerp),
-  --   use C,
-  --   split,
-  --   split, repeat {tauto!,}, simp*,
-  --   use C,
-  --   split,
-  --   exact between_trivial A C,
-  --   right,
-  --   exact out_trivial B C HCB,
-  --     apply l11_21_b,
-  --       apply out_sym,
-  --       apply l6_4_2 , 
-  --       tauto!,
-  --       exact out_trivial B C (HCB),
-  --   rcases l6_11_existence B B A C HCB (ne.symm HAB) with ⟨C0 ,⟨HOut, HCong⟩⟩,
-  --   cases midpoint_existence A C0 with P HP,
-  --   use P,
-  --   have HNCol1 : ¬ Col A B C0,
-  --     -- intro heq,
-  --     -- apply HNCol,
-  --   -- have: B ≠ P,
-  --   --   intro,
-  --   --   subst P,
-  --   --   unfold Midpoint at *,
-  --   --   apply HCol,
-  --   --   cleanup,
-
-
-
-
-
 
 
 lemma segment_construction_0  (A B A': Point): ∃ B', Cong A' B' A B:=sorry 
 
 
-
-
-
-
--- end 
-
-
---End T11
-
-
-/--Section T12-/
 
 @[simp] lemma par_reflexivity : ∀ (A B: Point), A≠B → Par A B A B :=
   begin
@@ -2187,7 +2192,6 @@ meta def par : tactic unit := `[ try
 try {simp*}]
 
 
-
 lemma l12_17 (A B C D P : Point): A ≠ B → 
 Midpoint P A C → Midpoint P B D → Par A B C D :=sorry
 
@@ -2199,57 +2203,6 @@ lemma l12_22_a (A B C D P: Point):
  Out P A C → OS P A B D → Par A B C D →
  CongA B A P D C P := sorry
  
-
-  -- suffices: A ≠ P → Bet P A C → OS P A B D → Par A B C D → CongA B A P D C P,
-  -- rintros HOut HOS HPar,
-  -- rcases HOut with ⟨HAP  ,⟨HCP , ⟨ HBet ⟩⟩⟩,
-  -- apply conga_sym,
-  -- apply this, repeat {tauto!,},
-  -- have H:= this HAP ,
-  -- apply H,
-  --  any_goals {tauto!,},
-  -- apply not_out_bet, unfold Col, cleanup,
-  -- unfold Out,
-  -- intro,
- 
-  -- suffices: Col P A C,
-  -- unfold Col at *,
-  -- cases_type* or, repeat {tauto!,},
-  
-  -- have HOut:= out_sym _ _ _(bet_out _ _ _ HCP HOut_right_right),
-  --  apply conga_sym,
-  -- apply this, repeat {tauto!,},
-  
-  -- have HOut:= out_sym _ _ _(bet_out _ _ _ HCP HOut_right_right),
-  -- apply conga_sym,
-  -- rcases this HAP with
-  
-  
-
---       --  Haux; Par.
---       -- apply col_one_side with A,
---   -- Col; Side.
---   --   }
---   --   intros A B C D P HAP HBet HOS HPar.
---   --   destruct (eq_dec_points A C).
---   --   { subst C.
---   --     apply out2__conga; [|apply out_trivial; auto].
---   --     apply col_one_side_out with P; Side.
---   --     apply par_id; Par.
---   --   }
---   --   destruct (segment_construction B A B A) as [B' []].
---   --   assert_diffs.
---   --   apply conga_trans with B' A C.
---   --     apply l11_14; auto.
---   --   apply l11_10 with B' C D A; try (apply out_trivial); auto; [|apply l6_6, bet_out; Between].
---   --   apply l12_21_a; [|apply par_col_par_2 with B; Col].
---   --   apply l9_2, l9_8_2 with B; [|apply col_one_side with P; Side; Col].
---   --   assert (HNCol : ¬ Col P A B) by (apply one_side_not_col123 with D, HOS).
---   --   assert (HNCol1 : ¬ Col B A C) by (intro; apply HNCol; ColR).
---   --   repeat split; trivial.
---   --     intro; apply HNCol1; ColR.
---   --   ∃ A; Col.
-
 
 
  lemma l12_22_aux :
@@ -2446,6 +2399,7 @@ end
 
 lemma exists_grid : ∃ (O E E' S U1 U2: Point), ¬ Col O E E' ∧ Cs O E S U1 U2 :=sorry 
 
+lemma lea121345 (A B C D E F: Point): A≠B → C≠D → D≠E → LeA A B A C D E:=sorry 
 
 lemma exists_grid_spec : ∃ (S U1 U2 : Point), Cs PA PB S U1 U2 := sorry 
 
@@ -2496,25 +2450,73 @@ begin
 end 
 
 
+lemma bet2_out_out(A B C B' C': Point): B ≠ A → B' ≠ A → Out A C C' → Bet A B C →
+ Bet A B' C' → Out A B B':=sorry
+
+
+lemma out2_bet_out : ∀ (A B C X P: Point),
+ Out B A C → Out B X P → Bet A X C → Out B A P ∧ Out B C P :=sorry
+
+ 
+lemma col123__nos (A B P Q: Point): Col P Q A → ¬ OS P Q A B:=sorry 
+
+
+lemma suppa_sym (A B C D E F: Point): SuppA A B C D E F -> SuppA D E F A B C:=sorry
+
+lemma suppa2__conga456(A B C D E F D' E' F': Point):
+  SuppA A B C D E F -> SuppA A B C D' E' F' -> CongA D E F D' E' F':=sorry
+
+
+lemma suppa2__conga123 : ∀( A B C D E F A' B' C': Point),
+  SuppA A B C D E F -> SuppA A' B' C' D E F -> CongA A B C A' B' C' :=
+begin
+  rintros, 
+  apply suppa2__conga456,
+  apply suppa_sym _ _ _ D E F,
+  assumption,
+  apply suppa_sym _ _ _ _ _ _ ᾰ_1,
+end 
+
+
+lemma bet_suma__suppa ( A B C D E F G H I : Point):
+  SumA A B C D E F G H I -> Bet G H I -> SuppA A B C D E F:=sorry
+
+lemma conga_diff1 ( A B C A' B' C': Point): CongA A B C A' B' C' → A ≠ B :=
+begin
+    rintros H,
+    unfold CongA at H,
+    tauto!,
+end 
+
+lemma conga_diff2 ( A B C A' B' C': Point):  CongA A B C A' B' C' → C ≠ B:=
+begin
+    rintros H,
+    unfold CongA at H,
+    tauto!,
+end 
+
 lemma per2_suma__bet (A B C D E F G H I : Point): Per A B C → Per D E F →
-   SumA A B C D E F G H I → Bet G H I := sorry 
--- begin
-  -- rintros HBRight HERight HSuma,
-  -- rcases HSuma with ⟨A1 ,⟨HConga1 ,⟨HNos , HConga2⟩⟩⟩, 
-  -- have HPer: (Per A1 B C) := l11_17 D E F _ _ _ HERight (conga_sym (conga_left_comm _ _ _ _ _ _ HConga1)),
-  -- apply (bet_conga_bet A B A1), 
-  -- apply (col_two_sides_bet _ C),
-  -- rw col5 at *,
-  -- apply (per_per_col _ _ C), tauto,
-  -- rcases HBRight with ⟨C', ⟨B,_⟩,HB⟩, 
-  -- exact (bet_neqR _ _ _ (between_symmetry _ _ _ B)),
-  -- tauto!,
-  -- split,
-  -- replace HNos:= l9_9_bis _ _ _ _  HNos,
-  -- -- apply not_one_side_two_sides HNos,
-  -- -- --  HNos,
-  -- -- --  apply per_not_col,
--- end 
+   SumA A B C D E F G H I → Bet G H I := 
+begin
+  rintros HBRight HERight HSuma,
+  rcases HSuma with ⟨A1 ,⟨HConga1 ,⟨HNos , HConga2⟩⟩⟩, 
+  have HPer: (Per A1 B C) := l11_17 D E F _ _ _ HERight (conga_sym (conga_left_comm _ _ _ _ _ _ HConga1)),
+  apply (bet_conga_bet A B A1), 
+  apply (col_two_sides_bet _ C),
+  rw col5 at *,
+  apply (per_per_col _ _ C), tauto!,
+  rcases HBRight with ⟨C', ⟨B,_⟩,HB⟩, 
+  exact (bet_neqR _ _ _ (between_symmetry _ _ _ B)),
+  assumption,
+  rcases ⟨conga_diff1 _ _ _ _ _ _ HConga1, conga_diff1 _ _ _ _ _ _ HConga2,
+  conga_diff2 _ _ _ _ _ _ HConga2⟩ with ⟨HBC, HNE1, HNE2⟩,
+  apply not_one_side_two_sides,
+  tauto!,
+  apply per_not_col, 
+  any_goals {tauto!,},
+  apply per_not_col,
+  any_goals {tauto!,},
+end 
 
 lemma suma_left_comm : ∀ (A B C D E F G H I : Point),
    SumA A B C D E F G H I → SumA C B A D E F G H I := sorry 
@@ -2547,6 +2549,8 @@ begin
   use [A, R, A, B, R],
   refine ⟨by assumption, by cleanup, by cleanup, by cleanup⟩,
 end 
+
+lemma lta__lea (A B C D E F : Point): LtA A B C D E F → LeA A B C D E F :=sorry
 
 lemma ex_trisuma : ∀( A B C : Point), A ≠ B → B ≠ C → A ≠ C →
   ∃ D E F, TriSumA A B C D E F :=sorry
@@ -2612,7 +2616,7 @@ lemma l12_21_b (A B C D: Point):
  end 
 
 
-end 
+end
 
 class tarski_2D (Point : Type) extends tarski_neutral_dimensionless_with_decidable_point_equality Point := 
 
@@ -2919,79 +2923,13 @@ begin
 apply os3__lta,
 end 
 
-lemma bet2_out_out(A B C B' C': Point): B ≠ A → B' ≠ A → Out A C C' → Bet A B C →
- Bet A B' C' → Out A B B':=sorry
 
-
-lemma out2_bet_out : ∀ (A B C X P: Point),
- Out B A C → Out B X P → Bet A X C → Out B A P ∧ Out B C P :=sorry
-
- 
-lemma col123__nos (A B P Q: Point): Col P Q A → ¬ OS P Q A B:=sorry 
-
--- Lemma suppa2__conga456 : forall A B C D E F D' E' F',
---   SuppA A B C D E F -> SuppA A B C D' E' F' -> CongA D E F D' E' F'.
--- Proof.
--- unfold SuppA.
--- intros; spliter.
--- ex_and H2 A'.
--- ex_and H1 A''.
--- apply conga_trans with C B A'; trivial.
--- apply conga_trans with C B A''; [|apply conga_sym, H4].
--- apply conga_distinct in H3.
--- apply conga_distinct in H4.
--- spliter.
--- apply out2__conga.
---   apply out_trivial; auto.
---   apply l6_2 with A; Between.
--- Qed.
-
-lemma suppa2__conga123 : ∀( A B C D E F A' B' C': Point),
-  SuppA A B C D E F -> SuppA A' B' C' D E F -> CongA A B C A' B' C' :=sorry 
-
-
-lemma bet_suma__suppa ( A B C D E F G H I : Point):
-  SumA A B C D E F G H I -> Bet G H I -> SuppA A B C D E F:=sorry
+lemma sums_assoc_1 (A B C D E F G H I J K L: Point):
+  SumS A B C D G H → SumS C D E F I J → SumS G H E F K L →
+  SumS A B I J K L :=sorry
 
 lemma prop_21_2 (A B C D A1 A2 D1 D2: Point): OS A B C D → OS B C A D → OS A C B D →
   SumS A B A C A1 A2 → SumS D B D C D1 D2 → Lt D1 D2 A1 A2 := sorry
-  -- begin
-  -- rintros H1 H2 H3 H4 H5,
-  -- have HNCol : ¬ Col A B C,
-  --  apply one_side_not_col123 A B C D, assumption,
-  --   rcases (os2__inangle A B C D (invert_one_side _ _ _ _ H1) H2) with ⟨ HAB , ⟨ HCB, ⟨ HDB ,⟨ E , HBet,  Heq |HOut⟩⟩⟩⟩,
-  --   subst_vars, exfalso,
-  --   apply HNCol, exact bet_col _ _ _ HBet,
-  --   have:= out_distinct _ _ _ HOut,
-  --   have HNE:= bet.neq _ _ _ HBet,
-  -- -- assert (C ≠ E) ,intro, subst E, apply (one_side_not_col124 A B C D),
-  -- have HDE: (D ≠ E) ,
-  --    intro, subst E, apply (one_side_not_col124 A C B D) H3,
-  --    apply col_permutation_5 _ _ _ (bet_col _ _ _ HBet),
-  --   have HBet2: Bet B D E,
-  --   apply (out2__bet) _ _ _ (out_sym _ _ _ HOut),
-  --   have := out_col _ _ _ HOut,
-  --   apply bet_out, tauto!, 
-    
-  --   have:= (bet_out) _ _ _ (ne.symm HDE) HOut,
-  --   apply bet_out, tauto!, 
-  --   have:= out_sym _ _ _ HOut, 
-  --   have:= col_one_side_out _ _ _ _ (out_col _ _ _ HOut),
-  -- ; Col.
-  --   apply invert_one_side, col_one_side with C; Col.
-  -- destruct (ex_sums E B E C) as [P [Q]].
-  -- apply lt_transitivity with P Q.
-  -- - destruct (ex_sums E C E D) as [R [S]].
-  --   apply le_lt34_sums2__lt with D B D C D B R S; Le.
-  --     apply prop_20 with E; Sums.
-  --     intro; apply HNCol; ColR.
-  --   apply sums_assoc_1 with E D E C E B; Sums.
-  -- - destruct (ex_sums A B A E) as [R [S]].
-  --   apply le_lt12_sums2__lt with E B E C R S E C; Le.
-  --     apply prop_20 with A; Sums.
-  --     intro; apply HNCol; ColR.
-  --   apply sums_assoc_2 with A B A E A C; Sums.
-
 
 
 
@@ -3057,7 +2995,6 @@ begin
   replace Hlta := lta_diff _ _ _ _ _ _ Hlta,
   rcases Hlta.1 with ⟨Hlta1,HnConga⟩,
   by_cases HCol: Col A B C, 
-  { 
     by_cases HBet: Bet B A C,
       have HC' := segment_construction E D A C,
       rcases HC' with ⟨C', ⟨⟩⟩,
@@ -3072,54 +3009,16 @@ begin
       simp * with geometry_simp,
       simp * with geometry_simp,
       exact cong_reflexivity E F,
-      unfold Lt, unfold Le,
-      use D, cleanup,
       apply (l2_11 _ D _ _ A),
-      apply between_trivial2,
-      apply (triangle_strict_inequality _ D),sorry
---       apply (cong_transitivity _ _ A C); Cong.
---       intro.
---       destruct Hlta as [_ HNConga].
---       apply HNConga.
---       apply conga_line; Between.
+      repeat {assumption,},
+      exact cong_commutativity _ _ _ _ (cong_symmetry _ _ _ _ HCongAB),
+      exfalso,
+      apply nlta C A B,
+      apply lea123456_lta__lta _ _ _ F D E,
+      apply lta__lea,
+      have:= (lea_comm _ _ _ _ _ _ Hlta1),sorry
 
---     - intro.
---       exfalso.
---       apply (nlta C A B).
---       apply (lea123456_lta__lta _ _ _ F D E); auto.
---       apply l11_31_1; auto.
---       apply not_bet_out; Col; Between.
-  -- }
---   intro.
---   elim(Col_dec D E F).
---   { intro.
---     elim(bet_dec F D E).
---     - intro.
---       exfalso.
---       apply (nlta F D E).
---       apply (lea456789_lta__lta _ _ _ C A B); auto.
---       apply l11_31_2; auto.
-
---     - intro HNBet.
---       apply not_bet_out in HNBet; Col.
---       assert(HF' := segment_construction_3 A B A C).
---       destruct HF' as [F' []]; auto.
---       apply (cong2_lt__lt B F' B C); Cong.
---       { apply (triangle_strict_reverse_inequality A); Cong.
---         intro.
---         destruct Hlta as [_ HNConga].
---         apply HNConga.
---         apply l11_21_b; auto.
---         apply l6_6; auto.
---       }
---       apply (out_cong_cong A _ _ D); auto.
---       apply l6_6; auto.
---       apply (cong_transitivity _ _ A C); auto.
---   }
---   intro.
---   elim(le_cases D F D E); intro; [|apply lt_comm; apply lta_comm in Hlta];
---   apply (t18_18_aux A _ _ D); Cong; Col.
-
+end 
 
 /-- If two triangles have the two sides equal 
 to two sides respectively, but have the base greater
@@ -3174,99 +3073,13 @@ begin
       apply col_permutation_1,
       assumption,
     have HH:=l11_4_1 ᾰ_1,
-    rcases HH with ⟨ HH1,HH2,HH3,HH4,HH5⟩ ,
+    rcases HH with ⟨ HH1,HH2,HH3,HH4, HH5⟩ ,
     have HCong: Cong A C A' C'',
       apply HH5,
+      refine ⟨_,_,_,_⟩ ,sorry 
+    
       
-  --     assert (C''≠ B') by auto.
-  --     repeat split;try assumption.
-  --       left.
-  --       apply between_trivial.
-  --       left.
-  --       apply between_trivial.
-  --       left.
-  --       apply between_trivial.
-  --       auto.
-  --       unfold Out in H7.
-  --       spliter.
-  --       assumption.
-  --       apply cong_commutativity.
-  --       assumption.
-  --     apply cong_symmetry.
-  --     assumption.
-  --   assert(Cong_3 B A C B' A' C'').
-  --     repeat split.
-  --       apply cong_commutativity.
-  --       assumption.
-  --       apply cong_symmetry.
-  --       assumption.
-  --     assumption.
-  --   assert(CongA B A C B' A' C'').
-  --     apply cong3_conga.
-  --       auto.
-  --       apply not_col_distincts in H.
-  --       spliter.
-  --       auto.
-  --     assumption.
-  --   assert(CongA B' A' C' B' A' C'').
-  --     eapply conga_trans.
-  --       apply conga_sym.
-  --       apply H0.
-  --     assumption.
-  --   assert(C' = C'').
-  --     assert(HH:= conga__or_out_ts B' A' C' C'' H20).
-  --     induction HH.
-  --       eapply l6_21.
-  --         apply not_col_permutation_5.
-  --         apply H10.
-  --         apply H9.
-  --         apply col_trivial_2.
-  --         apply out_col.
-  --         assumption.
-  --         apply out_col in H7.
-  --         assumption.
-  --         apply col_trivial_2.
-  --     assert(OS B' A' C' C'').
-  --       apply out_one_side.
-  --         left.
-  --         intro.
-  --         apply H10.
-  --         apply col_permutation_4.
-  --         assumption.
-  --       apply l6_6.
-  --       assumption.
-  --     apply l9_9 in H21.
-  --     contradiction.
-  --   subst C''.
-  --   clear H20.
-  --   split.
-  --     assumption.
-  --   split.
-  --     eapply cong2_conga_cong.
-  --       apply H19.
-  --       apply cong_commutativity.
-  --       assumption.
-  --     assumption.
-  --   apply cong3_conga.
-  --     apply not_col_distincts in H.
-  --     spliter.
-  --     assumption.
-  --     auto.
-  --   unfold Cong_3.
-  --   repeat split.
-  --     assumption.
-  --     assumption.
-  --   apply cong_symmetry.
-  --   apply cong_commutativity.
-  --   assumption.
 end 
-  -- begin
-  -- rintros HnCol HConga1 HConga2 HCongAB,
-  -- refine ⟨_,_,_⟩ ,
-  -- unfold CongA at HConga1,
-  -- have: ∃ C'', Out B' C'' C' ∧ Cong B C'' B C,
-  --   apply l6_11_existence
-
 
 
 lemma prop_26_2 : ∀ (A B C A' B' C': Point), ¬ Col A B C →
@@ -3329,18 +3142,19 @@ begin
 
 end     
 
+end
 
-end 
 class tarski_2D_euclidean (Point : Type) extends tarski_2D Point :=
 
-
- (euclid : ∀ A B C D T, Bet A D T → Bet B D C → A≠D → ∃ X, ∃ Y,
+ (euclid : ∀ (A B C D T: Point), Bet A D T → Bet B D C → A≠D → ∃ X, ∃ Y,
   Bet A B X ∧ Bet A C Y ∧ Bet X T Y)
+  
 
-
+open tarski_2D_euclidean
 open tarski_preneutral
 open tarski_2D
 open tarski_neutral_dimensionless_with_decidable_point_equality 
+
 section
 
   variables {Point : Type}
@@ -3350,14 +3164,24 @@ section
 variables x y z : Point 
 
 
-lemma ncop__ncol (A B C D: Point):
-  ¬ Coplanar A B C D -> ¬ Col A B C:=sorry
-
-
 lemma col__coplanar  (A B C D: Point):
-  Col A B C -> Coplanar A B C D:=sorry
+  Col A B C -> Coplanar A B C D:=
+begin
+  rintros,
+  use C,
+  cleanup,
+end 
 
-lemma eq_dec_implies_l5_1 (A B C D : Point): A ≠ B → Bet A B C → Bet A B D → Bet A C D ∨ Bet A D C :=sorry 
+
+lemma ncop__ncol (A B C D: Point):
+  ¬ Coplanar A B C D -> ¬ Col A B C:=
+begin
+  rintros HCoplanar,
+  intro heq,
+  apply HCoplanar,
+  apply col__coplanar _ _ _ _ heq,
+end 
+
 
 /--Tarski's version of parallel postulate -/
 def tarski_parallel_postulate  (Point : Type) [tarski_preneutral Point] : Prop := 
@@ -3386,10 +3210,36 @@ def postulate_of_transitivity_of_parallelism (Point : Type) [tarski_preneutral P
 Par A1 A2 C1 C2
 
 lemma playfair_implies_par_trans  :
-playfair_s_postulate Point → postulate_of_transitivity_of_parallelism Point  := sorry 
+playfair_s_postulate Point → postulate_of_transitivity_of_parallelism Point  :=
 
-lemma tarski_s_euclid : tarski_parallel_postulate Point := sorry
+begin
+  rintros HP A1, rintros _ _ _ _ _ _ Hp1 Hp2,
+  replace Hp1:= par_distincts _ _ _ _ Hp1,
+  replace Hp2:= par_distincts _ _ _ _ Hp2,
+  by_cases HCol: Col A1 A2 C1,
+  right,
+  have: (Col A1 C1 C2 ∧ Col A2 C1 C2),  
+  exact HP B1 B2 C1 C2 A1 A2 C1 Hp2.1 (col_trivial_1 C1 C2) 
+  (par_symmetry _ _ _ _ Hp1.1) (col_permutation_2 _ _ _ HCol),
+  cleanup,
+  left,
+  refine ⟨by tauto!,by tauto!,_,_⟩ ,
+  try {apply all_coplanar,},
+  intro HX,
+  cases HX with X HX,
+    have: Col C1 A1 A2 ∧ Col C2 A1 A2,
+    exact HP B1 B2 A1 A2 C1 C2 X (par_symmetry _ _ _ _ Hp1.1)
+    HX.1 Hp2.1 HX.2,
+  cleanup,
+  tauto!,
+end 
 
+lemma tarski_s_euclid : tarski_parallel_postulate Point := 
+begin
+  unfold tarski_parallel_postulate,
+  rintros _ _ _ _ _ HBet1 HBet2 HAD,
+  apply euclid A B C D T HBet1 HBet2 HAD,
+end
 
 lemma tarski_s_euclid_implies_playfair :
 tarski_parallel_postulate Point → playfair_s_postulate Point :=sorry 
@@ -3430,65 +3280,6 @@ def euclid_5 (Point : Type) [tarski_preneutral Point] := ∀ (P Q R S T U: Point
   Cong P T Q T → Cong R T S T →
   ∃ I, Bet S Q I ∧ Bet P U I
 
--- lemma  euclid_5__original_euclid : euclid_5 Point → euclid_s_parallel_postulate Point:=
--- begin
---   rintros eucl A B C D P Q R Hos HIsi HSuma HNBet,
---   cases midpoint_existence B C with M HM,
---   cases symmetric_point_construction D C with D' HD,
---   cases symmetric_point_construction D' M with E HE,
---   have Hdiff := HSuma,
---   rcases suma_distincts _ _ _ _ _ _ _ _ _ HSuma with ⟨HAB,HBC,HNE⟩, 
---   have HNCol1 : ¬ Col B C A, apply one_side_not_col123 _ _ _ D Hos,
---   have HNCol2 : ¬ Col B C D, apply one_side_not_col123 _ _ _ A, simp*,
---    unfold Midpoint at *, 
---     rcases ⟨bet.neq B M C HM.1, bet.neq _ _ _ HD.1, bet.neq _ _ _ HE.1⟩ with ⟨H4,H5,HME⟩ ,
---     rcases ⟨NCdistinct HNCol1 , NCdistinct HNCol2⟩ with ⟨H6,H7⟩,
---   have HNCol3: ¬ Col M C D,
---   { intro heq,apply HNCol2, 
---     apply l6_16_1 _ _ _ _ (ne.symm H4.1), tauto, cleanup, 
---     simp [Col], simp*, 
---   },
---   rcases NCdistinct HNCol3 with HNE2,
---   have HNCol4: ¬ Col M C D' , 
---   { intro heq,apply HNCol3, apply l6_16_1 _ _ _ _ H5.2.2,
---   repeat {try {cleanup}},
---   },
---   rcases NCdistinct HNCol4 with HNE3,
---   have HNCol5: ¬ Col D' C B,
---   { intro heq,apply HNCol4, apply l6_16_1 _ _ _ _ (ne.symm HBC),
---    cleanup, cleanup, simp [Col], simp*, 
---   },
---   have HNCol6 : ¬ Col M C E,
---   { intro heq, 
---   have HCE: C ≠ E,
---     {intro heq, 
---     rcases ⟨bet_col _ _ _ HM.1, bet_col _ _ _ HD.1, bet_col _ _ _ HE.1⟩ with ⟨HCol3,HCol4,HCol5⟩ ,
---     replace HCol5 := Col_perm _ _ _ HCol5, 
---     subst C, cleanup, tauto!, 
---     },
---    apply HNCol4, apply col_permutation_1, apply l6_16_1 _ _ _ _ (HME.2.2), tauto!, cleanup,
---    simp [Col], simp*, 
---   },
---   have HA': InAngle A C B E, 
-    
-
-
-
-
-    
-  -- have:= angle_construction_2 _ _ _ _ _ _
-  --  (ne.symm H4.1) (HNE3.2.1) (HNE3.2.2.1) (ne.symm HME.2.2) (not_col_permutation_2 _ _ _ HNCol6),
-  --  rcases this with ⟨B, HCongA, _⟩ ,
-  --  replace HCongA := conga_right_comm  _ _ _ _ _ _ HCongA,
-  --  have:= cong_symmetry _ _ _ _ HM.2,
-  -- have HSAS := l11_49 C M D' B M E HCongA,
---   have:= NCol_perm _ _ _ HNCol5,
---   suffices : ¬ OS B C A D, tauto!,
---   apply col123__nos, unfold Col, cleanup, 
---   unfold Col at HNCol1, 
---   repeat {rw not_or_distrib at HNCol1}, cleanup, exfalso,
-
--- end 
 
 lemma l5_2 ( A B C D: Point):
   A≠B → Bet A B C → Bet A B D → Bet B C D ∨ Bet B D C :=sorry 
@@ -3498,12 +3289,7 @@ lemma l5_3 ( A B C D: Point):
 
 lemma par_strict_distinct (A B C D:Point):
  Par_strict A B C D → A≠B ∧ C≠D:=sorry
--- end
 
-lemma coplanar_trivial (A B C:Point): Coplanar A A B C :=sorry
-
-lemma coplanar_perm_3 (A B C D:Point):
-  Coplanar A B C D -> Coplanar A C D B :=sorry
 
 lemma tarski_parallel_implies_euclid_5 :
   tarski_parallel_postulate Point → euclid_5 Point := sorry
@@ -3576,23 +3362,35 @@ lemma tarski_parallel_implies_euclid_5 :
       cleanup,
        end 
 
+lemma per_col (A B C D : Point):
+ B ≠ C → Per A B C → Col B C D → Per A B D:=sorry 
+
 lemma per__ex_saccheri (A B D: Point): Per B A D → A ≠ B → A ≠ D →
   ∃ C, Saccheri A B C D :=
 begin
-rintros A B D HPer HAB HBD,
-  have HNCol : ¬ Col B A D, apply per_not_col, -- auto
-  -- destruct (l10_15 A D D B) as [C0 []]; Col.
-  -- assert(¬ Col A D C0) by (apply (one_side_not_col123 _ _ _ B); Side).
-  -- assert_diffs.
-  -- destruct (segment_construction_3 D C0 A B) as [C []]; auto.
-  -- ∃ C.
-  -- repeat split; Cong.
-  --   apply (per_col _ _ C0); Col; Perp.
-  --   apply invert_one_side; apply (out_out_one_side _ _ _ C0); Side
-
-
-
-end 
+  rintros HPer HAB HBD,
+  have HNCol : ¬ Col B A D, apply per_not_col,
+  any_goals {tauto!,}, 
+  rcases (l10_15 A D D B (col_trivial_2 A D) 
+  (not_col_permutation_1 _ _ _ HNCol)) with ⟨C0,⟨_⟩⟩,
+  have HnCol: ¬ Col A D C0, 
+    apply (one_side_not_col123 _ _ _ B), simp*,
+  rcases ⟨NCdistinct HnCol, os_distincts _ _ _ _ h_right⟩ with ⟨HNE, HNE2⟩,
+  rcases (segment_construction_3 D C0 A B HNE.2.1 HAB) with ⟨C ,⟨_⟩⟩,
+  use C,
+  split, assumption,
+  split,
+  apply per_col _ _ C0, tauto!,
+  apply perp_per_1,
+  exact perp_left_comm _ _ _ _ h_left,
+  apply out_col _ _ _ h_left_1,
+  split,
+  exact cong_symmetry _ _ _ _ (cong_left_commutativity _ _ _ _ h_right_1),
+  apply invert_one_side,
+  apply out_out_one_side _ _ _ C0, 
+  exact invert_one_side _ _ _ _ h_right,
+  assumption,
+end
 
 lemma sac_rectangle (A B C D : Point):Saccheri A B C D → Rectangle A B C D :=sorry
 
