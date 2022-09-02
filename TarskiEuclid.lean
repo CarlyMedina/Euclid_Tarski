@@ -1950,31 +1950,6 @@ lemma l12_9 (A1 A2 B1 B2 C1 C2: Point):
 lemma par_left_comm ( A B C D: Point):
  Par A B C D → Par B A C D := sorry
 
--- begin
---  unfold Par,
---     rintros H,
---     induction H,
---       left,
---       unfold Par_strict at *,
---       split,
---       repeat {split}, any_goals {tauto!,},
---     --     apply coplanar_perm_6,
---     -- ;assumption.
---     --   intro.
---     --   apply H2.
---     --   ex_and H3 X.
---     --   ∃ X.
---     --   Col5.
---     -- right.
---     -- spliter.
---     -- Col5.
-
-
-
-
-
--- end 
-
 
 lemma par_right_comm (A B C D : Point):
 Par A B C D → Par A B D C :=
