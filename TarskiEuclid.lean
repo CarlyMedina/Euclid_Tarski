@@ -761,34 +761,8 @@ begin
     apply between_equality _ _ _ (between_symmetry _ _ _ H1) (between_symmetry _ _ _ H),
 end
 
-lemma between_exchange3 ( A B C D : Point) : Bet A B C → Bet A C D → Bet B C D:=
-begin
-  rintros H1 H2,
-  have : ∃ x, Bet C x C ∧ Bet B x D,
-    apply inner_pasch, repeat {apply between_symmetry,
-    tauto!,},
-    cases this with x H1,
-    have: C = x,
-      apply between_identity,
-      tauto, subst_vars, tauto,
-end 
 
 lemma between_inner_transitivity ( A B C D: Point):Bet A B D → Bet B C D → Bet A B C:= sorry
-
-
-lemma outer_transitivity_between2 ( A B C D:Point): Bet A B C → Bet B C D → B≠C → Bet A C D :=
-begin
-  rintros,
-  cases segment_construction A C C D with x H,
-  have H: x= D,
-    apply construction_uniqueness B C C D,
-    assumption,
-    apply between_exchange3 A B C x,
-    repeat {tauto!,},
-    apply cong_reflexivity C D,
-    subst x,
-    tauto,
-end 
 
 
 lemma bet.neq (A B C : Point): Bet A B C → B ≠ C ∧ A ≠ B ∧ A ≠ C := sorry
@@ -1236,14 +1210,20 @@ lemma all_coplanar (A B C D: Point): Coplanar A B C D:=sorry
 
 
 
-/--Section 3-/
-lemma lower_dim_ex : ∃ (A B C : Point),  ¬ (Bet A B C ∨ Bet B C A ∨ Bet C A B) :=
+lemma lower_dim_ex  (Point : Type) [tarski_preneutral Point]: ∃ (A B C : Point),  ¬ (Bet A B C ∨ Bet B C A ∨ Bet C A B) :=
 begin
   rintros, use[PA, PB, PC, lower_dim],
 end 
 
+lemma two_distinct_points : ∃ (X Y: Point), X ≠ Y:=sorry
+
+
 lemma l4_2 (A B C D A' B' C' D': Point): IFSC A B C D A' B' C' D' → Cong B D B' D':=sorry
 
+
+lemma eq_dec_implies_between_cong (A B : Point):
+ A=B ∨ A≠B →
+  ∀ (A B C: Point), Bet A C B → Cong A C A B → C=B:=sorry
 
 
 lemma le_trivial {A C D : Point}: Le A A C D := 
@@ -1258,10 +1238,44 @@ end
 
 lemma le_transitivity (A B C D E F: Point): Le A B C D → Le C D E F → Le A B E F:=sorry 
 
-lemma le_left_comm (A B C D: Point): Le A B C D → Le B A C D:=sorry 
+lemma between_cong (A B C : Point): Bet A C B → Cong A C A B → C=B:=
+begin
+  apply eq_dec_implies_between_cong, tauto!,
+end
 
-lemma le_right_comm (A B C D: Point):  Le A B C D → Le A B D C :=sorry 
 
+
+lemma cong__le (A B C D: Point): Cong A B C D → Le A B C D:=
+begin
+  rintros H,
+  use D,
+  split,
+  repeat {cleanup,},
+end 
+
+lemma le_left_comm (A B C D: Point): Le A B C D → Le B A C D:=
+
+begin
+  rintros Hle,
+  apply le_transitivity _ _ A B, 
+  apply cong__le,
+  repeat {cleanup,},
+end 
+
+lemma le_right_comm (A B C D: Point):  Le A B C D → Le A B D C :=
+begin
+  rintros Hle,
+  apply le_transitivity _ _ C D, assumption,
+  apply cong__le, cleanup,
+end 
+
+lemma le_comm (A B C D: Point): Le A B C D → Le B A D C:=
+begin
+  rintros, 
+  apply le_left_comm,
+  apply le_right_comm,
+  assumption,
+end
 
 lemma lt_right_comm (A B C D: Point): Lt A B C D → Lt A B D C:=
 begin
@@ -1311,65 +1325,256 @@ begin
   cleanup,
 end 
 
-lemma bet__lt1213 ( A B C: Point): B ≠ C → Bet A B C → Lt A B A C :=sorry 
+lemma l5_12_a (A B C : Point): Bet A B C → Le A B A C ∧ Le B C A C:=
+  begin
+    rintros Hbet,
+    split,
+      unfold Le,
+      use B,
+     cleanup,
+    apply le_comm,
+    unfold Le,
+    use B,
+    cleanup,
+    exact between_symmetry _ _ _ Hbet,
+  end 
 
-lemma bet__lt2313 ( A B C: Point): A ≠ B → Bet A B C → Lt B C A C :=sorry
+lemma bet__le1213 (A B C : Point): Bet A B C → Le A B A C :=
+  begin
+    rintros Hbet,
+    cases l5_12_a A B C Hbet,
+    assumption,
+  end 
+
+lemma bet__lt1213 ( A B C: Point): B ≠ C → Bet A B C → Lt A B A C :=
+  begin
+    rintros HBC Hbet,
+    constructor,
+      apply bet__le1213,
+      cleanup,
+    intro heq,
+    apply HBC, 
+    apply between_cong,
+    repeat {tauto!,}, 
+  end 
+
+lemma bet__lt2313 ( A B C: Point): A ≠ B → Bet A B C → Lt B C A C :=
+begin
+  rintros,
+  apply lt_comm, 
+  apply bet__lt1213,cleanup,
+  simp * with geometry_simp,
+end 
+
+lemma point_construction_different : ∀ (A B : Point), ∃ C, Bet A B C ∧ B ≠ C:=
+begin
+    rintros,
+    have tdp:= two_distinct_points,
+    cases tdp with x tdp,
+    cases tdp with y H,
+    cases segment_construction A B x y with F H0,
+    use F,
+    cleanup,
+    have: B ≠ F,
+      unfold ne,
+      intro,
+      subst_vars, 
+      have HCong:= cong_reverse_identity H0.2,
+      contradiction,
+    repeat {tauto!,},
+end 
+
+lemma between_exchange3 ( A B C D : Point) : Bet A B C → Bet A C D → Bet B C D:=
+begin
+  rintros H1 H2,
+  have : ∃ x, Bet C x C ∧ Bet B x D,
+    apply inner_pasch, repeat {apply between_symmetry,
+    tauto!,},
+    cases this with x H1,
+    have: C = x,
+      apply between_identity,
+      tauto, subst_vars, tauto,
+end 
+
+lemma outer_transitivity_between2 ( A B C D:Point): Bet A B C → Bet B C D → B≠C → Bet A C D :=
+begin
+  rintros,
+  cases segment_construction A C C D with x H,
+  have H: x= D,
+    apply construction_uniqueness B C C D,
+    assumption,
+    apply between_exchange3 A B C x,
+    repeat {tauto!,},
+    apply cong_reflexivity C D,
+    subst x,
+    tauto,
+end 
+
+
+lemma l4_5 (A B C A' C': Point): 
+  Bet A B C → Cong A C A' C' →
+  ∃ B', Bet A' B' C' ∧ Cong_3 A B C A' B' C':= sorry
+
 
 lemma l5_6 ( A B C D A' B' C' D': Point):
  Le A B C D → Cong A B A' B' → Cong C D C' D' → Le A' B' C' D':=sorry
 
-lemma le_reflexivity (A B: Point): Le A B A B :=sorry 
 
-lemma lt__le (A B C D: Point): Lt A B C D → Le A B C D :=sorry 
+lemma le_reflexivity (A B: Point): Le A B A B :=
+
+begin 
+  unfold Le,
+  rintros,
+  use B,
+  cleanup,
+end 
+
+lemma lt__le (A B C D: Point): Lt A B C D → Le A B C D :=
+
+begin 
+  rintros Hlt,
+  cases Hlt,
+  tauto!,
+end 
 
 lemma le_anti_symmetry (A B C D:Point): Le A B C D → Le C D A B → Cong A B C D :=sorry
 
 
+
+lemma sums_sym (A B C D E F: Point): SumS A B C D E F → SumS C D A B E F:=
+begin 
+  rintros HSumS,
+  rcases HSumS with ⟨P, ⟨Q, ⟨R, ⟨HBet, ⟨HCong1 ,⟨HCong2, HCong3⟩⟩⟩⟩⟩⟩,
+  use [R, Q, P], cleanup, simp * with geometry_simp,
+end 
+
+lemma le_lt12_sums2__lt  (A B C D E F A' B' C' D' E' F': Point):
+  Lt A B A' B' → Le C D C' D' → SumS A B C D E F → SumS A' B' C' D' E' F' →
+  Lt E F E' F':=sorry
+
 lemma le_lt34_sums2__lt ( A B C D E F A' B' C' D' E' F': Point):
   Le A B A' B' → Lt C D C' D' → SumS A B C D E F → SumS A' B' C' D' E' F' →
-  Lt E F E' F':=sorry
+  Lt E F E' F':=
+
+begin 
+  rintros HLe HLt Hsum HSum',
+  apply le_lt12_sums2__lt, repeat {assumption,},
+  all_goals {
+    apply sums_sym, assumption,
+  },
+end 
+
+lemma le_cases (A B C D: Point): Le A B C D ∨ Le C D A B:=sorry
+
 
 lemma or_lt_cong_gt ( A B C D : Point) : Lt A B C D ∨ Gt A B C D ∨ Cong A B C D :=sorry
 
 
+
 lemma angledistinct {A B C a b c : Point}:
-CongA A B C a b c → A ≠ B ∧ B ≠ C ∧ A ≠ C ∧ a ≠ b ∧ b ≠ c ∧ a ≠ c := sorry 
+CongA A B C a b c → A ≠ B ∧ B ≠ C ∧ A ≠ C ∧ a ≠ b ∧ b ≠ c ∧ a ≠ c := sorry
 
 
-lemma cong2_lt__lt : ∀ (A B C D A' B' C' D': Point),
- Lt A B C D → Cong A B A' B' → Cong C D C' D' → Lt A' B' C' D' := sorry 
+lemma cong2_lt__lt (A B C D A' B' C' D': Point):
+ Lt A B C D → Cong A B A' B' → Cong C D C' D' → Lt A' B' C' D' := 
+
+begin 
+  rintros Hlt HCong1 HCong2,
+  cases Hlt with Hle HNCong,
+  split,
+  apply (l5_6 A B C D), repeat {tauto!,},
+  intro heq,
+  apply HNCong,
+  apply (cong_transitivity _ _ A' B'), cleanup,
+  apply (cong_transitivity _ _ C' D'), cleanup,
+  cleanup,
+end 
 
 /-- Section T7 -/
 
-lemma l7_3_2 : ∀ (A : Point), Midpoint A A A := sorry 
+lemma l7_3_2 : ∀ (A : Point), Midpoint A A A := 
+begin 
+  unfold Midpoint,
+  cleanup,
+end 
 
 lemma l7_21 ( A B C D P: Point):
   ¬ Col A B C → B≠D →
   Cong A B C D → Cong B C D A →
   Col A P C → Col B P D →
-  Midpoint P A C ∧ Midpoint P B D :=sorry
+  Midpoint P A C ∧ Midpoint P B D :=sorry 
 
-/--Section T6-/
 
 lemma not_col_exists (A B : Point): A≠B → ∃ C, ¬ Col A B C := sorry
 
+
+
 --Out 
 
-lemma out2__bet (A B C : Point): Out A B C → Out C A B → Bet A B C := sorry
+lemma l6_4_1 (A B P: Point): Out P A B → Col A P B ∧ ¬ Bet A P B:=sorry
 
-lemma bet_out : ∀ (A B C: Point), B ≠ A → Bet A B C → Out A B C:=sorry
+
+
+lemma out2__bet (A B C : Point): Out A B C → Out C A B → Bet A B C := 
+begin 
+  rintros Hout1 Hout2,
+  replace Hout2:= l6_4_1 _ _ _ Hout2,
+  cases Hout2 with _ Hout2,
+  rcases Hout1 with ⟨_,⟨_,⟨ _ ⟩⟩⟩,
+  cleanup,
+  contradiction,
+end 
+
+lemma bet_out (A B C: Point): B ≠ A → Bet A B C → Out A B C:=
+begin 
+  unfold Out,
+  rintros,
+  cleanup,
+  cases bet.neq _ _ _ ᾰ_1 with _ _,
+  tauto!,
+end 
 
 /-out reflexivity-/
-lemma out_trivial (P A : Point) : (A ≠ P) → Out P A A := sorry
+lemma out_trivial (P A : Point) : (A ≠ P) → Out P A A := 
+begin 
+  unfold Out,
+  cleanup,
+end 
+
+lemma out_diff1 (A B C: Point): Out A B C → B ≠ A:=
+begin
+    rintros H,
+    unfold Out at H,
+    tauto!,
+end
+
+lemma out_diff2 (A B C: Point): Out A B C → C ≠ A:=
+begin
+    rintros H,
+    unfold Out at H,
+    tauto!,
+end
+
+lemma out_distinct ( A B C: Point): Out A B C → B ≠ A ∧ C ≠ A:=
+begin 
+  rintros,
+  split,
+   apply out_diff1, assumption,
+  apply out_diff2, assumption,
+
+end 
 
 
-lemma out_distinct ( A B C: Point): Out A B C → B ≠ A ∧ C ≠ A:=sorry
-
-
-lemma out_sym (P A B : Point) : Out P A B → Out P B A :=sorry 
+lemma out_sym (P A B : Point) : Out P A B → Out P B A :=
+begin 
+  rintros,
+  unfold Out at *,
+  cc,
+end 
 
 
 lemma out_one_side (A B X Y : Point): (¬Col A B X ∨ ¬ Col A B Y) → Out A X Y → OS A B X Y:=sorry
+
 
 lemma out_out_one_side (A B X Y Z: Point):
   OS A B X Y →
@@ -1377,8 +1582,7 @@ lemma out_out_one_side (A B X Y Z: Point):
   OS A B X Z :=sorry
 
 lemma one_side_transitivity (P Q A B C: Point):
-OS P Q A B → OS P Q B C → OS P Q A C:=sorry 
-
+OS P Q A B → OS P Q B C → OS P Q A C:= sorry 
 
 
 lemma out_col : ∀ (A B C: Point), Out A B C → Col A B C :=
@@ -1394,19 +1598,57 @@ end
 mk_simp_attribute out_simp "simplification lemmas for out"
 
 attribute [out_simp] out_trivial out_sym 
+
+lemma l6_16_1 (P Q S X: Point): P≠Q → S≠P → Col S P Q → Col X P Q → Col X P S:=sorry
+
 lemma col_transitivity_1 (P Q A B: Point):
-  P≠Q → Col P Q A → Col P Q B → Col P A B :=sorry
+  P≠Q → Col P Q A → Col P Q B → Col P A B :=
+begin 
+  rintros HPQ HCol1 HCol2,
+  by_cases A=P,
+    subst_vars,
+    unfold Col,
+    cleanup,
+  have T:= l6_16_1 P Q A B,
+  apply col_permutation_1,
+  apply T,
+  repeat {cleanup,},
+end 
 
 lemma col_transitivity_2 (P Q A B: Point):
- P≠Q → Col P Q A → Col P Q B → Col Q A B := sorry 
-
-
-attribute [simp] out_col 
+ P≠Q → Col P Q A → Col P Q B → Col Q A B := 
+  begin 
+    rintros, 
+    apply col_transitivity_1 Q P A B, all_goals {cleanup,},
+  end 
 
 lemma not_out_bet ( A B C: Point):
  Col A B C → ¬ Out B A C → Bet A B C :=sorry
 
-lemma not_bet_out ( A B C: Point): Col A B C → ¬Bet A B C → Out B A C :=sorry
+
+lemma or_bet_out (A B C: Point): Bet A B C ∨ Out B A C ∨ ¬Col A B C:=
+begin
+    rintros,
+    by_cases Col A B C, cleanup,
+    by_cases (Out B A C), cleanup,
+    left, apply not_out_bet, repeat {cleanup,}, 
+    -- left; apply not_out_bet; trivial.
+end 
+
+
+lemma not_bet_out ( A B C: Point): Col A B C → ¬Bet A B C → Out B A C :=
+begin 
+  rintros,
+  cases or_bet_out A B C with HBet _,
+  contradiction,
+  tauto!,
+end 
+
+
+
+lemma l5_2 ( A B C D: Point):
+  A≠B → Bet A B C → Bet A B D → Bet B C D ∨ Bet B D C :=sorry 
+
 
 
 lemma l6_2 (A B C P: Point): 
@@ -1416,13 +1658,16 @@ lemma l6_2 (A B C P: Point):
 lemma l6_11_existence (A B C R: Point):
 R≠A → B≠C → ∃ X, Out A X R ∧ Cong A X B C:=sorry
 
+
 lemma segment_construction_3 (A B X Y: Point): A ≠ B → X ≠ Y → ∃ C, Out A B C ∧ Cong A C X Y:=sorry
 
+
 lemma l6_21 : ∀ (A B C D P Q: Point),
-  ¬ Col A B C → C≠D → Col A B P → Col A B Q → Col C D P → Col C D Q → P=Q := sorry 
+  ¬ Col A B C → C≠D → Col A B P → Col A B Q → Col C D P → Col C D Q → P=Q := sorry
 
 /--Section T8-/
 lemma l8_12 (A B C D X : Point): Perp_at X A B C D → Perp_at X C D A B :=sorry
+
 
 lemma l8_18_existence (A B C : Point): ¬ Col A B C → ∃ X, Col A B X ∧ Perp A B C X:=sorry
 
@@ -1454,6 +1699,9 @@ begin
 end 
 
 
+lemma l7_20 (M A B:Point):
+  Col A M B → Cong M A M B → A=B ∨ Midpoint M A B:=sorry 
+
 lemma l8_7 {A B C : Point}: Per A B C → Per A C B → B=C := sorry 
 
 lemma per_not_col  {A B C : Point}: A ≠ B → B ≠ C → Per A B C → ¬Col A B C:=sorry
@@ -1473,7 +1721,7 @@ lemma perp_right_comm ( A B C D : Point): Perp A B C D → Perp A B D C:=sorry
 lemma perp_comm ( A B C D : Point): Perp A B C D → Perp B A D C :=sorry
 
 
-lemma perp_at1 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X A B D C := sorry
+lemma perp_at1 (X A B C D : Point) :(Perp_at X A B C D) = Perp_at X A B D C := sorry
 lemma perp_at2 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A C D := sorry
 lemma perp_at3 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A D C := sorry
 lemma perp_at4 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X C D A B := sorry
@@ -1682,6 +1930,11 @@ lemma l11_41_aux : ∀( A B C D: Point),
 lemma l11_41  (A B C D: Point):
  ¬ Col A B C → Bet B A D → A ≠ D → LtA A C B C A D ∧ LtA A B C C A D := sorry
 
+lemma l11_29_a  {A B C D E F:Point}: LeA A B C D E F → ∃ Q, InAngle C A B Q ∧ CongA A B Q D E F:=sorry
+
+
+lemma l11_29_b (A B C D E F:Point): (∃ Q, InAngle C A B Q ∧ CongA A B Q D E F) → LeA A B C D E F:=sorry
+
  
 lemma lea_left_comm (A B C D E F: Point): LeA A B C D E F → LeA C B A D E F := 
 begin
@@ -1694,13 +1947,47 @@ begin
   exact conga_left_comm _ _ _ _ _ _ H.2,
 end 
 
-lemma lea_right_comm (A B C D E F: Point): LeA A B C D E F → LeA A B C F E D := sorry 
+lemma lea_right_comm (A B C D E F: Point): LeA A B C D E F → LeA A B C F E D := 
+begin
+  rintros H,
+  apply l11_29_b,
+  replace H:= l11_29_a H,
+  cases H with P H,
+  use P,
+  cleanup,
+  apply conga_right_comm,
+  cleanup,
+end 
 
-lemma lea_comm (A B C D E F: Point): LeA A B C D E F → LeA C B A F E D :=sorry 
+lemma lea_comm (A B C D E F: Point): LeA A B C D E F → LeA C B A F E D :=
+begin
+  rintros, 
+  apply lea_left_comm,
+  apply lea_right_comm,
+  cleanup,
+end 
 
-lemma lta_left_comm (A B C D E F: Point): LtA A B C D E F → LtA C B A D E F :=sorry 
+lemma lta_left_comm (A B C D E F: Point): LtA A B C D E F → LtA C B A D E F :=
+begin
+  unfold LtA,
+  rintros H0,
+  constructor,
+  apply lea_left_comm, cleanup,
+  intro heq,
+  apply H0.2, apply conga_left_comm,
+  assumption,
+end
 
-lemma lta_right_comm (A B C D E F: Point): LtA A B C D E F → LtA A B C F E D :=sorry 
+lemma lta_right_comm (A B C D E F: Point): LtA A B C D E F → LtA A B C F E D :=
+begin
+  unfold LtA,
+  rintros H0,
+  constructor,
+  apply lea_right_comm, cleanup,
+  intro heq,
+  apply H0.2, apply conga_right_comm,
+  assumption,
+end
 
 
 lemma lta_comm (A B C D E F : Point): LtA A B C D E F → LtA C B A F E D :=
@@ -1819,8 +2106,6 @@ lemma alternate_interior__triangle :
   alternate_interior_angles_postulate Point → triangle_postulate Point := sorry 
 
 
-lemma bet__le1213 (A B C : Point): Bet A B C → Le A B A C :=sorry 
-
 lemma bet__le2313 (A B C : Point): Bet A B C → Le B C A C :=sorry 
 
 
@@ -1902,7 +2187,14 @@ lemma conga__or_out_ts : ∀ (A B C C': Point),
  CongA A B C A B C' → Out B C C' ∨ TS A B C C' :=sorry 
 
 
-lemma perp_sym (A B C D: Point): Perp A B C D → Perp C D A B :=sorry 
+lemma perp_sym (A B C D: Point): Perp A B C D → Perp C D A B :=
+begin
+  unfold Perp,
+  rintros H,
+  cases H with X H,
+  use X,
+  apply l8_12, tauto!,
+end 
 
 lemma perp_per_1 ( A B C : Point): Perp A B C A → Per B A C:=sorry 
 
@@ -2050,30 +2342,71 @@ begin
     cleanup,
 end 
 
-lemma par_strict_left_comm (A B C D: Point):
+lemma par_strict_left_comm {A B C D: Point}:
  Par_strict A B C D → Par_strict B A C D:=sorry
 
 
-lemma par_strict_right_comm (A B C D: Point):
+lemma par_strict_right_comm {A B C D: Point}:
  Par_strict A B C D → Par_strict A B D C :=sorry
 
 lemma par_strict_comm (A B C D: Point):
- Par_strict A B C D → Par_strict B A D C :=sorry
+ Par_strict A B C D → Par_strict B A D C :=
+ begin
+  rintros H,
+  replace H:= par_strict_left_comm H,
+  apply par_strict_right_comm,
+  tauto!,
+ end 
 
 lemma par_not_col_strict (A B C D P: Point):
  Par A B C D → Col C D P → ¬Col A B P → Par_strict A B C D :=sorry 
 
 lemma par_strict_not_col_1 (A B C D: Point):
-Par_strict A B C D → ¬ Col A B C :=sorry
+Par_strict A B C D → ¬ Col A B C :=
+begin
+  rintros HPar, 
+  unfold Par_strict at HPar,
+  intro HCol,
+  apply HPar.2.2.2,
+  use C,
+  cleanup,
+end 
 
 lemma par_strict_not_col_2 (A B C D: Point):
- Par_strict A B C D → ¬ Col B C D :=sorry 
+ Par_strict A B C D → ¬ Col B C D :=
+ begin
+  rintros HPar, 
+  unfold Par_strict at HPar,
+  intro HCol,
+  apply HPar.2.2.2,
+  use B,
+  cleanup,
+end 
+
 
 lemma par_strict_not_col_3 (A B C D: Point):
- Par_strict A B C D → ¬ Col C D A :=sorry
+ Par_strict A B C D → ¬ Col C D A :=
+ begin
+  rintros HPar, 
+  unfold Par_strict at HPar,
+  intro HCol,
+  apply HPar.2.2.2,
+  use A,
+  cleanup,
+end 
+
 
 lemma par_strict_not_col_4 (A B C D: Point):
- Par_strict A B C D → ¬ Col A B D:=sorry 
+ Par_strict A B C D → ¬ Col A B D:=
+ begin
+  rintros HPar, 
+  unfold Par_strict at HPar,
+  intro HCol,
+  apply HPar.2.2.2,
+  use D,
+  cleanup,
+end 
+ 
 
 lemma par_id_1 (A B C : Point): Par A B A C → Col B A C :=
 begin
@@ -2160,7 +2493,6 @@ begin
       all_goals {tauto!,},
 end 
 
-lemma or_bet_out ( A B C: Point): Bet A B C ∨ Out B A C ∨ ¬Col A B C:=sorry
 
 meta def par : tactic unit := `[ try 
 { simp only [par_id_1, par_id_2, par_id_3, par_id_4, par_id_5] at *}; 
@@ -2262,16 +2594,43 @@ lemma distr_l ( O E E' A B C D AB AC AD: Point):
  Sum O E E' B C D → Prod O E E' A B AB → Prod O E E' A C AC →
  (Prod O E E' A D AD → Sum O E E' AB AC AD):=sorry
 
-lemma length_id_1 : ∀( O E E' A B: Point),
-  Length O E E' A B O → A=B := sorry 
+lemma length_id_1 ( O E E' A B: Point):
+  Length O E E' A B O → A=B := 
+begin
+  rintros H,
+  unfold Length at H,
+  apply cong_reverse_identity H.2.2.2,
+end 
 
 
-lemma length_id_2 : ∀ (O E E' A: Point),
-  O≠E → Length O E E' A A O :=sorry
+lemma length_id_2 (O E E' A: Point):
+  O≠E → Length O E E' A A O :=
+  begin
+  rintros H,
+  unfold Length,
+  refine ⟨by assumption, by cleanup, _, _⟩ ,
+  unfold LeP,
+  tauto!, apply cong_trivial_identity,
+end 
 
 
-lemma length_id : ∀ (O E E' A B : Point),
- Length O E E' A B O ↔ (A=B ∧ O≠E) :=sorry 
+
+lemma length_id (O E E' A B : Point):
+ Length O E E' A B O ↔ (A=B ∧ O≠E) :=
+begin
+  rintros,
+  constructor,
+    rintros H,
+    split,
+    apply length_id_1,assumption,
+    unfold Length at *, 
+    tauto!,
+    rintros H,
+    cases H with H H1,
+    subst_vars,
+    apply length_id_2,
+    assumption,
+end 
 
 -- -- /-- Section T 15-/
 
@@ -2367,7 +2726,8 @@ begin
         apply l15_7_1 O E E' B A C P AB BC, {any_goals {tauto!,},}, 
         use l8_2 _ _ _ HPer, 
         perp,
-        use length_sym HL, any_goals {tauto!,},
+        apply length_sym, tauto!,
+        any_goals {tauto!,},
       exact distr_l O E E' AB AP BP AB AC2 BC2 AB2 HSum HProd1 HProd2 H6,
 end 
 
@@ -2587,7 +2947,9 @@ lemma l12_21_b (A B C D: Point):
     apply par_col_par,
       tauto!,
       apply HPar,
-     focus {cleanup},
+      apply out_col, 
+      apply out_sym,
+      tauto!,
  end 
 
 
@@ -3244,7 +3606,7 @@ lemma par_trans ( A1 A2 B1 B2 C1 C2 : Point):
   end
 
 
-lemma l6_16_1 (P Q S X: Point): P≠Q → S≠P → Col S P Q → Col X P Q → Col X P S:=sorry
+
 
 def euclid_s_parallel_postulate (Point : Type) [tarski_preneutral Point] := 
 ∀ (A B C D P Q R: Point), OS B C A D → SAMS A B C B C D → 
@@ -3254,10 +3616,6 @@ def euclid_5 (Point : Type) [tarski_preneutral Point] := ∀ (P Q R S T U: Point
   Bet P T Q → Bet R T S → Bet Q U R → ¬ Col P Q S →
   Cong P T Q T → Cong R T S T →
   ∃ I, Bet S Q I ∧ Bet P U I
-
-
-lemma l5_2 ( A B C D: Point):
-  A≠B → Bet A B C → Bet A B D → Bet B C D ∨ Bet B D C :=sorry 
 
 lemma l5_3 ( A B C D: Point):
  Bet A B D → Bet A C D → Bet A B C ∨ Bet A C B :=sorry
