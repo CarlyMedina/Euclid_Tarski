@@ -1492,11 +1492,6 @@ end
 
 /-- Section T7 -/
 
-lemma l7_3_2 : ∀ (A : Point), Midpoint A A A := 
-begin 
-  unfold Midpoint,
-  cleanup,
-end 
 
 lemma l7_21 ( A B C D P: Point):
   ¬ Col A B C → B≠D →
@@ -1702,7 +1697,6 @@ end
 lemma l7_20 (M A B:Point):
   Col A M B → Cong M A M B → A=B ∨ Midpoint M A B:=sorry 
 
-lemma l8_7 {A B C : Point}: Per A B C → Per A C B → B=C := sorry 
 
 lemma per_not_col  {A B C : Point}: A ≠ B → B ≠ C → Per A B C → ¬Col A B C:=sorry
 
@@ -1735,14 +1729,11 @@ meta def perp : tactic unit := `[try { simp only [perp_at1, perp_at2,
 perp_at3, perp_at4, perp_at5, perp_at6, perp_at7] at *}; try {simp*}]
 
 /--Per sym-/
-lemma l8_2 (A B C : Point): Per A B C → Per C B A :=sorry 
 
 
 lemma l8_9 ( A B C : Point ): Per A B C → Col A B C → A=B ∨ C=B := sorry 
 
 
-lemma l8_14_2_1b_bis ( A B C D X : Point): 
-Perp A B C D → Col X A B → Col X C D → Perp_at X A B C D:=sorry
 /--Section T9-/
 
 
@@ -1922,6 +1913,37 @@ lemma l11_30  (A B C D E F A' B' C' D' E' F': Point):
  CongA D E F D' E' F' →
  LeA A' B' C' D' E' F' := sorry 
 
+lemma in_angle_trivial_1 (A B C: Point): A ≠ B → C ≠ B → InAngle A A B C:=
+begin
+  rintros,
+  constructor,
+    tauto!,
+  refine ⟨by assumption, by assumption, _⟩,
+  use A,
+  split,
+    cleanup,
+  right,
+  apply out_trivial,
+  assumption,
+end 
+
+
+lemma l11_21_b (A B C A' B' C': Point):
+ Out B A C → Out B' A' C' → CongA A B C A' B' C' :=sorry
+ 
+lemma l11_31_1 (A B C D E F : Point): Out B A C → D ≠ E → F ≠ E → Bet D E F → LeA A B C D E F:=
+begin
+  rintros,
+  unfold LeA,
+  use D,
+  split,
+    apply in_angle_trivial_1, tauto!, tauto!,
+  apply l11_21_b,
+    assumption,
+  apply out_trivial,
+  assumption,
+end 
+
 
 lemma l11_41_aux : ∀( A B C D: Point),
  ¬ Col A B C → Bet B A D → A ≠ D → LtA A C B C A D :=sorry 
@@ -2076,7 +2098,16 @@ begin
           assumption,
 end 
 
+lemma all_coplanar_implies_upper_dim : all_coplanar_axiom Point → upper_dim_axiom Point:=sorry
 
+lemma upper_dim_implies_not_one_side_two_sides :
+  upper_dim_axiom Point→
+  (∀ (A B X Y: Point),
+   A ≠ B →
+   ¬ Col X A B →
+   ¬ Col Y A B →
+   ¬ OS A B X Y →
+   TS A B X Y):=sorry
 
 
 
@@ -2085,7 +2116,12 @@ lemma not_one_side_two_sides {A B X Y: Point}:
   ¬ Col X A B →
   ¬ Col Y A B →
   ¬ OS A B X Y →
-  TS A B X Y :=sorry 
+  TS A B X Y :=
+  begin
+    apply upper_dim_implies_not_one_side_two_sides,
+    apply all_coplanar_implies_upper_dim,
+    unfold all_coplanar_axiom, apply all_coplanar,
+  end 
 
 
 -- /--Tarski's version of parallel postulate -/
@@ -2106,7 +2142,12 @@ lemma alternate_interior__triangle :
   alternate_interior_angles_postulate Point → triangle_postulate Point := sorry 
 
 
-lemma bet__le2313 (A B C : Point): Bet A B C → Le B C A C :=sorry 
+lemma bet__le2313 (A B C : Point): Bet A B C → Le B C A C :=
+begin
+  rintros HBet,
+  cases l5_12_a A B C HBet,
+  assumption,
+end
 
 
 
@@ -2172,16 +2213,45 @@ lemma lta_trans  (A B C A1 B1 C1 A2 B2 C2: Point):
  LtA A1 B1 C1 A2 B2 C2 →
  LtA A B C A2 B2 C2 :=sorry
 
+lemma l9_31 (A X Y Z:Point):
+  OS A X Y Z →
+  OS A Z Y X →
+  TS A Y X Z:=sorry
+
+lemma os_ts__inangle (A B C P:Point): TS B P A C → OS B A C P → InAngle P A B C:=sorry
+
 lemma os2__inangle (A B C P: Point): 
-OS B A C P → OS B C A P → InAngle P A B C :=sorry 
+OS B A C P → OS B C A P → InAngle P A B C :=
+begin
+  rintros Hos1 Hos2,
+  apply os_ts__inangle,
+  apply l9_31,
+  any_goals{ simp*,},
+end 
 /--This is half of Euclid Book I,
 Proposition 21: if D is inside the triangle ABC then BAC < BDC.-/
 
 lemma os3__lta (A B C D: Point): OS A B C D → OS B C A D → OS A C B D →
    LtA B A C B D C:= sorry
 
+lemma ts_distincts {A B P Q: Point}: TS A B P Q →
+  A ≠ B ∧ A ≠ P ∧ A ≠ Q ∧ B ≠ P ∧ B ≠ Q ∧ P ≠ Q:=
+begin
+  rintros HTS,
+  rcases HTS with ⟨HNCol1, ⟨HNCol2, ⟨T ,⟨HCol, HBet⟩⟩⟩⟩,
+  rcases ⟨bet.neq _ _ _ HBet, NCdistinct HNCol1, NCdistinct HNCol2⟩ with ⟨HNE1, HNE2, HNE3⟩,
+  refine ⟨ _,_,_,_,_,_⟩,
+  all_goals{
+    tauto!,
+  },
+end
 lemma os_distincts (A B X Y: Point): OS A B X Y →
-  A ≠ B ∧ A ≠ X ∧ A ≠ Y ∧ B ≠ X ∧ B ≠ Y :=sorry 
+  A ≠ B ∧ A ≠ X ∧ A ≠ Y ∧ B ≠ X ∧ B ≠ Y :=
+  begin
+    rintros ⟨Z,⟨HTS1,HTS2⟩⟩,
+    rcases ⟨ts_distincts HTS1, ts_distincts HTS2⟩ with ⟨_,_⟩,
+    tauto!,
+  end
 
 lemma conga__or_out_ts : ∀ (A B C C': Point),
  CongA A B C A B C' → Out B C C' ∨ TS A B C C' :=sorry 
@@ -2196,9 +2266,114 @@ begin
   apply l8_12, tauto!,
 end 
 
-lemma perp_per_1 ( A B C : Point): Perp A B C A → Per B A C:=sorry 
+lemma l7_3_2 : ∀ (A : Point), Midpoint A A A := 
+begin 
+  unfold Midpoint,
+  cleanup,
+end 
 
-lemma perp_per_2 (A B C: Point): Perp A B A C → Per B A C :=sorry 
+
+lemma l7_13 (A P Q P' Q':Point): Midpoint A P' P → Midpoint A Q' Q → Cong P Q P' Q':=sorry
+
+lemma l8_2 (A B C : Point): Per A B C → Per C B A :=
+begin 
+  unfold Per,
+  rintros ⟨C', H⟩,
+  have: ∃ A', Midpoint B A A',
+    apply symmetric_point_construction,
+  cases this with A' H1,
+  use A',
+  split,
+    assumption,
+  apply cong_transitivity _ _ _ _ _ _,
+  apply cong_commutativity,
+  apply H.2,
+  apply l7_13,
+  apply H.1,
+  apply l7_2,
+  apply H1,
+end 
+
+
+
+lemma l8_5 (A B:Point) : Per A B B:=
+begin
+    unfold Per,
+    intros,
+    use B,
+    split,
+      apply l7_3_2,
+    cleanup,
+end 
+
+lemma l8_7 {A B C : Point}: Per A B C → Per A C B → B=C := sorry 
+
+lemma l8_8 (A B:Point): Per A B A → A=B:=
+begin
+    rintros,
+    apply l8_7,
+      apply l8_2,
+      apply l8_5,
+    assumption,
+end 
+
+lemma l8_14_2_1b (X A B C D Y: Point): Perp_at X A B C D → Col Y A B → Col Y C D → X=Y:=
+begin
+    rintros H0 H1 H2,
+    unfold Perp_at at H0,
+    rcases H0 with ⟨HAB, HCD,_,_,H4⟩ ,
+    replace H4:= H4 Y Y,
+      apply symm,
+    apply l8_8,
+    cleanup,
+end 
+
+lemma l8_14_2_1b_bis (A B C D X: Point):  Perp A B C D → Col X A B → Col X C D → Perp_at X A B C D:=
+begin
+    rintros ⟨Y, H0⟩ H1 H2,
+    unfold Perp_at at *,
+    have HYX:(Y = X),
+     apply l8_14_2_1b Y _ _ _ _ ,
+     apply H0,
+     any_goals {cleanup,},
+     subst Y,
+     tauto!,
+end 
+
+lemma l8_15_1 (A B C X: Point): A≠B → Col A B X → Perp A B C X → Perp_at X A B C X:=
+begin
+    rintros,
+    apply l8_14_2_1b_bis,
+    all_goals {cleanup,},
+end 
+lemma perp_perp_in {A B C: Point}: Perp A B C A → Perp_at A A B C A:=
+begin
+    rintros H,
+    apply l8_15_1,
+      unfold Perp at H,
+      cases H with X H0,
+      unfold Perp_at at H0,
+      tauto!,
+    all_goals {cleanup,},
+end
+
+lemma perp_per_1 {A B C : Point}: Perp A B C A → Per B A C:=
+begin
+  rintros H,
+  have HPerp: Perp_at A A B C A,
+    apply perp_perp_in,
+    assumption,
+  rcases HPerp with ⟨_,_,HCol1,HCol2,HH⟩,
+  apply HH,
+  all_goals {cleanup,},
+end 
+
+lemma perp_per_2 (A B C: Point): Perp A B A C → Per B A C :=
+begin
+  rintros H,
+  replace H:= perp_right_comm _ _ _ _ H,
+  apply perp_per_1 H,
+end 
 
 
 lemma l6_4_2 (A B P: Point): Col A P B ∧ ¬ Bet A P B → Out P A B :=sorry 
@@ -2209,8 +2384,6 @@ lemma l11_51 : ∀(A B C A' B' C': Point),
   CongA B A C B' A' C' ∧ CongA A B C A' B' C' ∧ CongA B C A B' C' A' :=sorry 
 
 
-lemma l11_21_b (A B C A' B' C': Point):
- Out B A C → Out B' A' C' → CongA A B C A' B' C' :=sorry
 
 
 lemma conga_distinct (A B C D E F: Point):
@@ -2732,7 +2905,8 @@ begin
 end 
 
 
-lemma exists_grid : ∃ (O E E' S U1 U2: Point), ¬ Col O E E' ∧ Cs O E S U1 U2 :=sorry 
+lemma exists_grid : ∃ (O E E' S U1 U2: Point), ¬ Col O E E' ∧ Cs O E S U1 U2 :=sorry
+
 
 lemma lea121345 (A B C D E F: Point): A≠B → C≠D → D≠E → LeA A B A C D E:=sorry 
 
