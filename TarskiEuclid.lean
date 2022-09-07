@@ -1708,25 +1708,31 @@ lemma perp_in_perp_bis (A B C D X: Point):
 
 lemma perp_distinct (A B C D : Point): Perp A B C D → A ≠ B ∧ C ≠ D:=sorry
 
+
 lemma perp_left_comm ( A B C D : Point): Perp A B C D → Perp B A C D:=sorry 
+
 
 lemma perp_right_comm ( A B C D : Point): Perp A B C D → Perp A B D C:=sorry
 
 lemma perp_comm ( A B C D : Point): Perp A B C D → Perp B A D C :=sorry
 
 
-lemma perp_at1 (X A B C D : Point) :(Perp_at X A B C D) = Perp_at X A B D C := sorry
-lemma perp_at2 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A C D := sorry
-lemma perp_at3 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A D C := sorry
-lemma perp_at4 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X C D A B := sorry
-lemma perp_at5 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X C D B A := sorry
-lemma perp_at6 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X D C A B := sorry
-lemma perp_at7 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X D C B A := sorry
-
+lemma perp_at1 (X A B C D : Point) :(Perp_at X A B C D) = Perp_at X A B D C := 
+begin
+  rintros, simp [Perp_at], cleanup,
+end
+lemma perp_at2 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A C D := 
+begin
+  rintros, simp [Perp_at], cleanup,
+end
+lemma perp_at3 (X A B C D : Point) : (Perp_at X A B C D) = Perp_at X B A D C := 
+begin
+  rintros, simp [Perp_at], cleanup,
+end
 
 
 meta def perp : tactic unit := `[try { simp only [perp_at1, perp_at2, 
-perp_at3, perp_at4, perp_at5, perp_at6, perp_at7] at *}; try {simp*}]
+perp_at3] at *}; try {simp*}]
 
 /--Per sym-/
 
@@ -2294,6 +2300,40 @@ begin
   apply H1,
 end 
 
+lemma perp_in_sym (A B C D X: Point):  Perp_at X A B C D → Perp_at X C D A B:=
+begin
+  unfold Perp_at,
+  rintros ⟨_, _, _,_, H⟩,
+  cleanup,
+  intros,
+  apply l8_2,
+  apply H,
+  repeat {
+  assumption,},
+end
+
+lemma perp_in_left_comm (A B C D X:Point): Perp_at X A B C D → Perp_at X B A C D :=
+begin
+  unfold Perp_at, cleanup, cc,
+end
+
+lemma perp_in_right_comm (A B C D X:Point): Perp_at X A B C D → Perp_at X A B D C :=
+begin
+  rintros,
+  apply perp_in_sym,
+  apply perp_in_left_comm,
+  apply perp_in_sym,
+  assumption,
+end
+
+
+lemma perp_in_comm (A B C D X: Point):  Perp_at X A B C D → Perp_at X B A D C:=
+begin
+  rintros, 
+  apply perp_in_left_comm,
+  exact perp_in_right_comm _ _ _ _ _ ᾰ,
+end 
+
 
 
 lemma l8_5 (A B:Point) : Per A B B:=
@@ -2643,7 +2683,32 @@ begin
       cleanup, cleanup,
 end 
 
-lemma par_strict_symmetry (A B C D :Point) : Par_strict A B C D → Par_strict C D A B :=sorry
+lemma coplanar_perm_16 (A B C D: Point):
+  Coplanar A B C D → Coplanar C D A B:=
+begin
+  rintros HCop,
+  rcases HCop with ⟨X,H⟩, use X, 
+  induction H,
+  try {induction H,},
+  tauto!, 
+  cases H,
+  right, left,cleanup,
+  right,right,cleanup,
+end
+
+lemma par_strict_symmetry (A B C D :Point) : Par_strict A B C D → Par_strict C D A B :=
+begin
+  unfold Par_strict,
+  rintros H,
+  refine ⟨by tauto!, by tauto!, _,_⟩,
+    apply coplanar_perm_16,
+    tauto!,
+  intro heq,
+  apply H.2.2.2,
+  cases heq with X heq,
+  use X,
+  cleanup,
+end 
 
 
 lemma par_strict_col_par_strict ( A B C D E : Point) :
@@ -2665,6 +2730,7 @@ begin
       unfold Par_strict at H,
       all_goals {tauto!,},
 end 
+
 
 
 meta def par : tactic unit := `[ try 
@@ -2894,14 +2960,16 @@ begin
       apply triangular_equality_bis O E E' A P B AP BP AB, any_goals {tauto!,},
       exact length_sym HL2,
       have HProd1: Prod O E E' AB AP AC2,
-        apply l15_7_1 O E E' A B C P AB AC AP AC2, any_goals {tauto!,}, perp,
+        apply l15_7_1 O E E' A B C P AB AC AP AC2, any_goals {tauto!,},
+        apply perp_in_sym, assumption,
       have HProd2: Prod O E E' AB BP BC2,
         apply l15_7_1 O E E' B A C P AB BC, {any_goals {tauto!,},}, 
         use l8_2 _ _ _ HPer, 
-        perp,
-        apply length_sym, tauto!,
+        apply perp_in_sym,
+        apply perp_in_left_comm _ _ _ _ _ HPerp,
+        apply length_sym, 
         any_goals {tauto!,},
-      exact distr_l O E E' AB AP BP AB AC2 BC2 AB2 HSum HProd1 HProd2 H6,
+        exact distr_l O E E' AB AP BP AB AC2 BC2 AB2 HSum HProd1 HProd2 H6,
 end 
 
 
